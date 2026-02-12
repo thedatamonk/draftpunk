@@ -12,6 +12,7 @@ class Transaction(BaseModel):
 
 class Obligation(BaseModel):
     id: int | None = None
+    trxn_id: str | None = None
     person_name: str
     type: Literal["recurring", "one_time"]
     direction: Literal["owes_me", "i_owe"] = "owes_me"
@@ -50,6 +51,7 @@ class CreateObligationRequest(BaseModel):
     person_name: str
     type: Literal["recurring", "one_time"]
     direction: Literal["owes_me", "i_owe"] = "owes_me"
+    trxn_id: str | None = None
     total_amount: float
     expected_per_cycle: float | None = None
     note: str | None = None

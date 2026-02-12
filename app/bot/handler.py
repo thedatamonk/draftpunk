@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 from loguru import logger
@@ -279,6 +280,8 @@ async def _execute_add(query, persons, amount, obligation_type, expected_per_cyc
         await query.edit_message_text("Missing person or amount. Please try again.")
         return
 
+    trxn_id = str(uuid.uuid4()) if len(persons) > 1 else None
+
     created_names = []
     if obligation_type == "one_time":
         # Split equally among persons
@@ -291,6 +294,7 @@ async def _execute_add(query, persons, amount, obligation_type, expected_per_cyc
                 total_amount=per_person,
                 remaining_amount=per_person,
                 note=note,
+                trxn_id=trxn_id,
             )
             repo.add(ob)
             created_names.append(f"{person} ({_format_inr(per_person)})")
@@ -304,6 +308,7 @@ async def _execute_add(query, persons, amount, obligation_type, expected_per_cyc
                 expected_per_cycle=expected_per_cycle,
                 remaining_amount=amount,
                 note=note,
+                trxn_id=trxn_id,
             )
             repo.add(ob)
             created_names.append(person)

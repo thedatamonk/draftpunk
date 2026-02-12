@@ -33,6 +33,7 @@ def create_obligations(request: CreateObligationRequest):
         person_name=request.person_name,
         type=request.type,
         direction=request.direction,
+        trxn_id=request.trxn_id,
         total_amount=request.total_amount,
         expected_per_cycle=request.expected_per_cycle,
         remaining_amount=remaining,
