@@ -22,9 +22,10 @@ Rules:
 1. Parse amounts in various formats: "5k" = 5000, "1.5k" = 1500, "₹3,200" = 3200
 2. Handle Hindi/English mix naturally (e.g., "Sunita ko 5k diya" = gave Sunita 5k)
 3. For expenses with multiple people (e.g., "dinner with Rahul and Priya, 3200, I paid"):
-   - Split the total equally among the OTHER people (exclude the user)
+   - Calculate the per-person share by dividing the total by ALL participants (including the user if they participated)
+   - Set "amount" to the per-person share (NOT the total bill)
    - Set obligation_type to "one_time"
-   - Create separate entries for each person
+   - Only include the OTHER people in "persons" (exclude the user) — these are the people who owe money
 4. For advances with monthly deductions: set obligation_type to "recurring" and extract expected_per_cycle
 5. If the input is ambiguous, set is_ambiguous to true and provide a clarifying_question
 6. For "query" actions (e.g., "what's pending?", "how much does Rahul owe?"), set requires_confirmation to false
@@ -58,7 +59,7 @@ Output:
   "parsed": {
     "action": "add",
     "persons": ["Rahul", "Priya"],
-    "amount": 3200,
+    "amount": 1067,
     "obligation_type": "one_time",
     "expected_per_cycle": null,
     "note": "Dinner split",

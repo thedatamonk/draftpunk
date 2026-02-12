@@ -256,24 +256,24 @@ async def _execute_add(query, persons, amount, obligation_type, expected_per_cyc
         return
 
     created_names = []
-    if obligation_type == "one_time" and len(persons) > 1:
+    if obligation_type == "one_time":
         # Split equally among persons
-        per_person = round(amount / len(persons), 2)
+        per_person = round(amount, 2)
         for person in persons:
             ob = Obligation(
                 person_name=person,
-                type="one_time",
+                type=obligation_type,
                 total_amount=per_person,
                 remaining_amount=per_person,
                 note=note,
             )
             repo.add(ob)
             created_names.append(f"{person} ({_format_inr(per_person)})")
-    else:
+    elif obligation_type == "recurring":
         for person in persons:
             ob = Obligation(
                 person_name=person,
-                type=obligation_type or "one_time",
+                type=obligation_type,
                 total_amount=amount,
                 expected_per_cycle=expected_per_cycle,
                 remaining_amount=amount,
@@ -281,6 +281,8 @@ async def _execute_add(query, persons, amount, obligation_type, expected_per_cyc
             )
             repo.add(ob)
             created_names.append(person)
+    else:
+        raise ValueError(f"Unknown obligation type: {obligation_type}")
 
     await query.edit_message_text(f"Done! Added: {', '.join(created_names)}")
 
