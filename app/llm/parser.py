@@ -28,7 +28,7 @@ class IntentParser:
             for ob in context:
                 context_text += (
                     f"- {ob.person_name}: ₹{ob.remaining_amount} remaining "
-                    f"({ob.type}, total ₹{ob.total_amount})"
+                    f"({ob.type}, {ob.direction}, total ₹{ob.total_amount})"
                 )
                 if ob.note:
                     context_text += f" — {ob.note}"

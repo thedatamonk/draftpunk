@@ -14,6 +14,7 @@ class Obligation(BaseModel):
     id: int | None = None
     person_name: str
     type: Literal["recurring", "one_time"]
+    direction: Literal["owes_me", "i_owe"] = "owes_me"
     total_amount: float
     expected_per_cycle: float | None = None
     remaining_amount: float
@@ -27,6 +28,7 @@ class ParsedIntent(BaseModel):
     action: Literal["add", "settle", "query", "edit", "delete", "chitchat", "off_topic"]
     persons: list[str]
     amount: float | None = None
+    direction: Literal["owes_me", "i_owe"] = "owes_me"
     obligation_type: Literal["recurring", "one_time"] | None = None
     expected_per_cycle: float | None = None
     note: str | None = None
@@ -47,6 +49,7 @@ class ParseRequest(BaseModel):
 class CreateObligationRequest(BaseModel):
     person_name: str
     type: Literal["recurring", "one_time"]
+    direction: Literal["owes_me", "i_owe"] = "owes_me"
     total_amount: float
     expected_per_cycle: float | None = None
     note: str | None = None

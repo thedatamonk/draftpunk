@@ -44,21 +44,44 @@ def _format_inr(amount: float) -> str:
 
 
 def _pending_summary(obligations: list[Obligation]) -> str:
-    """Build a summary of pending obligations."""
+    """Build a summary of pending obligations grouped by direction."""
     if not obligations:
         return "No pending obligations! You're all clear."
 
+    they_owe = [ob for ob in obligations if ob.direction != "i_owe"]
+    i_owe = [ob for ob in obligations if ob.direction == "i_owe"]
+
     lines = ["*Pending obligations:*\n"]
-    for i, ob in enumerate(obligations, 1):
-        line = f"{i}. *{ob.person_name}* — {_format_inr(ob.remaining_amount)}"
-        if ob.type == "recurring":
-            line += " (recurring)"
-        if ob.note:
-            line += f" — {ob.note}"
-        lines.append(line)
+    counter = 1
+
+    if they_owe:
+        lines.append("*They owe you:*")
+        for ob in they_owe:
+            line = f"{counter}. *{ob.person_name}* — {_format_inr(ob.remaining_amount)}"
+            if ob.type == "recurring":
+                line += " (recurring)"
+            if ob.note:
+                line += f" — {ob.note}"
+            lines.append(line)
+            counter += 1
+        total_owed = sum(ob.remaining_amount for ob in they_owe)
+        lines.append(f"_Subtotal: {_format_inr(total_owed)}_\n")
+
+    if i_owe:
+        lines.append("*You owe:*")
+        for ob in i_owe:
+            line = f"{counter}. *{ob.person_name}* — {_format_inr(ob.remaining_amount)}"
+            if ob.type == "recurring":
+                line += " (recurring)"
+            if ob.note:
+                line += f" — {ob.note}"
+            lines.append(line)
+            counter += 1
+        total_you_owe = sum(ob.remaining_amount for ob in i_owe)
+        lines.append(f"_Subtotal: {_format_inr(total_you_owe)}_\n")
 
     total = sum(ob.remaining_amount for ob in obligations)
-    lines.append(f"\n*Total pending: {_format_inr(total)}*")
+    lines.append(f"*Total pending: {_format_inr(total)}*")
     return "\n".join(lines)
 
 
@@ -225,6 +248,7 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
     action = action_data["action"]
     persons = action_data.get("persons", [])
     amount = action_data.get("amount")
+    direction = action_data.get("direction", "owes_me")
     obligation_type = action_data.get("obligation_type")
     expected_per_cycle = action_data.get("expected_per_cycle")
     note = action_data.get("note")
@@ -232,7 +256,7 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
     try:
         if action == "add":
             await _execute_add(
-                query, persons, amount, obligation_type, expected_per_cycle, note
+                query, persons, amount, obligation_type, expected_per_cycle, note, direction
             )
         elif action == "settle":
             await _execute_settle(query, persons, amount, note)
@@ -249,7 +273,7 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.edit_message_text(f"Something went wrong: {e}")
 
 
-async def _execute_add(query, persons, amount, obligation_type, expected_per_cycle, note):
+async def _execute_add(query, persons, amount, obligation_type, expected_per_cycle, note, direction="owes_me"):
     """Execute an add obligation action."""
     if not persons or not amount:
         await query.edit_message_text("Missing person or amount. Please try again.")
@@ -263,6 +287,7 @@ async def _execute_add(query, persons, amount, obligation_type, expected_per_cyc
             ob = Obligation(
                 person_name=person,
                 type=obligation_type,
+                direction=direction,
                 total_amount=per_person,
                 remaining_amount=per_person,
                 note=note,
@@ -274,6 +299,7 @@ async def _execute_add(query, persons, amount, obligation_type, expected_per_cyc
             ob = Obligation(
                 person_name=person,
                 type=obligation_type,
+                direction=direction,
                 total_amount=amount,
                 expected_per_cycle=expected_per_cycle,
                 remaining_amount=amount,
