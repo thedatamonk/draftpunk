@@ -171,6 +171,10 @@ SCENARIOS = [
             "Shivam paid me back the 3500 for petrol",
         ],
     },
+    {
+        "name": "Chitchat — simple greeting",
+        "messages": ["Hi!"],
+    },
     # Agent should ask which obligation are we talking about?
     {
         "name": "Settle with multiple obligations — Anjali partial",

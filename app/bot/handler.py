@@ -5,7 +5,6 @@ from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
-    ConversationHandler,
     MessageHandler,
     CallbackQueryHandler,
     ContextTypes,
@@ -129,6 +128,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if llm_result.parsed and llm_result.parsed.is_ambiguous:
         _append_to_history(context, "user", user_text)
         _append_to_history(context, "assistant", llm_result.confirmation_message)
+        await update.message.reply_text(llm_result.confirmation_message)
+        return
+
+    # Chitchat or off-topic — just relay the LLM's message
+    if llm_result.parsed and llm_result.parsed.action in ("chitchat", "off_topic"):
         await update.message.reply_text(llm_result.confirmation_message)
         return
 

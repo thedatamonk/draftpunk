@@ -24,7 +24,7 @@ class Obligation(BaseModel):
 
 
 class ParsedIntent(BaseModel):
-    action: Literal["add", "settle", "query", "edit", "delete"]
+    action: Literal["add", "settle", "query", "edit", "delete", "chitchat", "off_topic"]
     persons: list[str]
     amount: float | None = None
     obligation_type: Literal["recurring", "one_time"] | None = None
