@@ -35,7 +35,7 @@ Rules:
 6. If the input is ambiguous, set is_ambiguous to true and provide a clarifying_question
 7. For "query" actions (e.g., "what's pending?", "how much does Rahul owe?"), set requires_confirmation to false
 8. Always generate a friendly confirmation_message summarizing what you understood
-9. Use conversation history (prior messages) for context when handling follow-up messages. If the user already provided a name, amount, or other detail in an earlier message, do not re-ask for it — combine the information to produce a complete action
+9. Use conversation history (prior messages) for context when handling follow-up messages. If the user already provided a name, amount, direction, or other detail in an earlier message, do not re-ask for it — combine the information to produce a complete action. When previously derived information is provided, treat it as the established baseline — only override a field if the user's new message explicitly contradicts it.
 10. If the message is a greeting or casual conversation (e.g. "Hi", "Hello", "How are you", "Thanks"), set action to "chitchat", all financial fields to null, requires_confirmation to false, and reply with a friendly conversational response in confirmation_message
 11. If the message is off-topic / non-financial (e.g. "Remind me to call mom", "What's the weather"), set action to "off_topic", all financial fields to null, requires_confirmation to false, and politely redirect the user to financial features in confirmation_message
 12. For "edit" actions, populate only the field being changed (expected_per_cycle, amount, or note) and leave others null

@@ -44,6 +44,33 @@ def _format_inr(amount: float) -> str:
     return f"₹{amount:,.2f}"
 
 
+def _build_add_summary(parsed: dict, llm_message: str) -> str:
+    """Build a structured Markdown summary for an 'add' confirmation."""
+    persons = parsed.get("persons", [])
+    amount = parsed.get("amount")
+    direction = parsed.get("direction", "owes_me")
+    obligation_type = parsed.get("obligation_type")
+    expected_per_cycle = parsed.get("expected_per_cycle")
+    note = parsed.get("note")
+
+    direction_label = "They owe you" if direction == "owes_me" else "You owe them"
+    person_line = ", ".join(persons) if persons else "Unknown"
+    type_label = "Recurring" if obligation_type == "recurring" else "One-time"
+
+    lines = [llm_message, ""]  # LLM lead-in, then blank line
+    lines.append(f"*Person:* {person_line}")
+    if amount is not None:
+        lines.append(f"*Amount:* {_format_inr(amount)}")
+    lines.append(f"*Direction:* {direction_label}")
+    lines.append(f"*Type:* {type_label}")
+    if obligation_type == "recurring" and expected_per_cycle is not None:
+        lines.append(f"*Monthly deduction:* {_format_inr(expected_per_cycle)}")
+    if note:
+        lines.append(f"*Note:* {note}")
+
+    return "\n".join(lines)
+
+
 def _pending_summary(obligations: list[Obligation]) -> str:
     """Build a summary of pending obligations grouped by direction."""
     if not obligations:
@@ -182,6 +209,21 @@ async def _handle_choice(query, context: ContextTypes.DEFAULT_TYPE) -> None:
         await query.edit_message_text(f"Something went wrong: {e}")
 
 
+async def create_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /create — start an obligation creation session."""
+    # Clear any stale state
+    context.user_data.pop("pending_partial", None)
+    context.user_data.pop("history", None)
+    context.user_data.pop("pending_action", None)
+    context.user_data.pop("pending_choice", None)
+    # Mark session as active
+    context.user_data["create_session"] = True
+    await update.message.reply_text(
+        "Let's create a new obligation. Describe the transaction — "
+        "who's involved, how much, and whether they owe you or you owe them."
+    )
+
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command."""
     await update.message.reply_text(
@@ -193,6 +235,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '• "Rahul paid 500"\n'
         '• "What\'s pending?"\n\n'
         "Commands:\n"
+        "/create — Start logging a new obligation\n"
         "/pending — Show active obligations\n"
         "/settled — Show settled obligations\n"
         "/help — Show this message"
@@ -256,7 +299,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_text,
         context=active_obligations,
         history=context.user_data.get("history", []),
+        partial_intent=context.user_data.get("pending_partial"),
     )
+
+    # Store pending_partial on every parsed response during a create session
+    if context.user_data.get("create_session") and llm_result.parsed:
+        context.user_data["pending_partial"] = llm_result.parsed.model_dump()
+
+    # Outside a create session, redirect add actions to /create
+    if (llm_result.parsed
+            and llm_result.parsed.action == "add"
+            and not context.user_data.get("create_session")):
+        await update.message.reply_text(
+            "To add a new obligation, please start with /create."
+        )
+        return
 
     # If ambiguous, store history and relay the clarifying question
     if llm_result.parsed and llm_result.parsed.is_ambiguous:
@@ -296,7 +353,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # For actions that need confirmation, store state and ask
     if llm_result.requires_confirmation and llm_result.parsed:
-        context.user_data["pending_action"] = llm_result.parsed.model_dump()
+        action_data = llm_result.parsed.model_dump()
+        context.user_data["pending_action"] = action_data
         keyboard = InlineKeyboardMarkup(
             [
                 [
@@ -305,9 +363,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ]
             ]
         )
-        sent = await update.message.reply_text(
-            llm_result.confirmation_message, reply_markup=keyboard
-        )
+
+        # Structured summary for add actions in create sessions
+        if (llm_result.parsed.action == "add"
+                and context.user_data.get("create_session")):
+            confirmation_text = _build_add_summary(
+                action_data, llm_result.confirmation_message
+            )
+            sent = await update.message.reply_text(
+                confirmation_text, reply_markup=keyboard, parse_mode="Markdown"
+            )
+        else:
+            sent = await update.message.reply_text(
+                llm_result.confirmation_message, reply_markup=keyboard
+            )
+
         context.user_data["pending_message_id"] = sent.message_id
         return
 
@@ -353,13 +423,19 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
         context.user_data.pop("pending_action", None)
         context.user_data.pop("pending_message_id", None)
         context.user_data.pop("history", None)
-        await query.edit_message_text(query.message.text + "\n\n_Cancelled._", parse_mode="Markdown")
+        context.user_data.pop("create_session", None)
+        context.user_data.pop("pending_partial", None)
+        await query.edit_message_text(
+            query.message.text_markdown + "\n\n_Cancelled._", parse_mode="Markdown"
+        )
         return
 
     # confirm_yes
     action_data = context.user_data.pop("pending_action", None)
     context.user_data.pop("pending_message_id", None)
     context.user_data.pop("history", None)
+    context.user_data.pop("create_session", None)
+    context.user_data.pop("pending_partial", None)
     if not action_data:
         await query.edit_message_text("Nothing to confirm. Send a new message.")
         return
@@ -564,6 +640,7 @@ def build_bot_app() -> Application:
     # Command handlers
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("create", create_command))
     app.add_handler(CommandHandler("pending", pending_command))
     app.add_handler(CommandHandler("settled", settled_command))
 

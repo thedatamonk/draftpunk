@@ -20,6 +20,7 @@ class IntentParser:
         user_message: str,
         context: list[Obligation] | None = None,
         history: list[dict] | None = None,
+        partial_intent: dict | None = None,
     ) -> LLMResponse:
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
@@ -34,6 +35,17 @@ class IntentParser:
                     context_text += f" — {ob.note}"
                 context_text += "\n"
             messages.append({"role": "system", "content": context_text})
+
+        if partial_intent:
+            fields = {k: v for k, v in partial_intent.items()
+                      if v is not None and k not in ("is_ambiguous", "clarifying_question")}
+            intent_text = (
+                "Information derived from the conversation so far:\n"
+                + "\n".join(f"- {k}: {v}" for k, v in fields.items())
+                + "\nUse these as the baseline. Only override a field "
+                "if the user's new message explicitly changes it."
+            )
+            messages.append({"role": "system", "content": intent_text})
 
         if history:
             messages.extend(history)
