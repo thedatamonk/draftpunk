@@ -1,149 +1,102 @@
+<div align="center">
+
 # Memory Logger
 
-A personal finance and debt-tracking application powered by natural language processing. Track who owes you money (and vice versa), record payments, split expenses, and manage recurring obligations — all through conversational messages via a Telegram bot or a React dashboard.
+Personal finance tracker powered by NLP — track debts conversationally via Telegram or a web dashboard.
+
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![TinyDB](https://img.shields.io/badge/TinyDB-JSON%20Store-orange)
+![Gemini Flash](https://img.shields.io/badge/LLM-Gemini%20Flash-4285F4?logo=google&logoColor=white)
+
+</div>
 
 ---
 
-## Table of Contents
+## Features
 
-1. [Project Overview](#project-overview)
-2. [Core Functionalities](#core-functionalities)
-3. [Tech Stack](#tech-stack)
-4. [Project Structure](#project-structure)
-5. [Setup Instructions](#setup-instructions)
-6. [Using the Telegram Bot](#using-the-telegram-bot)
-7. [API Reference](#api-reference)
-8. [Data Models](#data-models)
-9. [How the Telegram Bot + LLM Pipeline Works](#how-the-telegram-bot--llm-pipeline-works)
-10. [Frontend Features](#frontend-features)
+| Conversational Tracking | Multi-Person Splits | Web Dashboard |
+|---|---|---|
+| NLP intent parsing for add, settle, query, edit, and delete via natural language | Auto-divides group expenses by headcount; one entry per person linked by `trxn_id` | React SPA with search, sort, filter by direction, and live stats |
 
----
-
-## Project Overview
-
-Memory Logger is a two-part application:
-
-- **Backend** — A FastAPI REST API with a Telegram bot. Users send natural language messages (e.g. *"Gave Sunita 5k, deduct 1k monthly"*) and an LLM (Gemini Flash via OpenRouter) parses the intent, confirms the action, and persists it to a TinyDB JSON database.
-- **Frontend** — A React single-page app that displays a summary dashboard of all obligations, lets users filter/sort/search, and provides CRUD operations through a clean card-based UI.
-
-The two communicate over a REST API. The Telegram bot and the web frontend are independent entry points into the same data store.
+- **7 recognized intents** — `add`, `settle`, `query`, `edit`, `delete`, `chitchat`, `off_topic`
+- **Recurring obligations** — monthly deductions tracked automatically (e.g. salary advances)
+- **Disambiguation keyboard** — when a person has multiple active obligations, an inline picker lets you choose the right one
+- **Conversation history** — last 10 messages are passed to the LLM so multi-turn references resolve naturally (*"yes, 500"*)
+- **Confirmation flow** — mutating actions show an inline Yes/No keyboard before executing
 
 ---
 
-## Core Functionalities
+## Architecture
 
-| Feature | Description |
-|---|---|
-| **NLP intent parsing** | Gemini Flash classifies every message into one of 7 actions (`add`, `settle`, `query`, `edit`, `delete`, `chitchat`, `off_topic`) and extracts structured fields. |
-| **Obligation tracking** | Supports both **recurring** (monthly deductions) and **one-time** debts, in both directions (`owes_me` / `i_owe`). |
-| **Multi-person splits** | *"Dinner 3200 with Rahul and Priya, I paid"* → auto-divides by headcount (including the user), creates one obligation per person, grouped by a shared `trxn_id`. |
-| **Transaction recording** | Partial payments are appended to an obligation's transaction list; `remaining_amount` is decremented automatically. |
-| **Settlement** | Mark an obligation fully settled — remaining amount drops to zero and a closing transaction is recorded. |
-| **Telegram bot** | `/start`, `/help`, `/pending`, `/settled` commands plus free-text and voice-note input. |
-| **Conversation history** | Last 10 messages are passed to the LLM so it can resolve multi-turn references (*"yes, 500"* after being asked *"How much did Rahul pay?"*). |
-| **Disambiguation** | When a person has multiple active obligations, the bot shows an inline keyboard listing each one so the user can pick the right record. |
-| **Confirmation flow** | Mutating actions show an inline Yes/No keyboard before executing. |
+```mermaid
+graph TD
+    A([User - Telegram]) --> C[FastAPI REST API :8000]
+    B([User - React Frontend]) --> C
 
----
+    C --> D[IntentParser\nGemini Flash via OpenRouter]
+    C --> E[(ObligationRepository\nTinyDB JSON)]
 
-## Tech Stack
+    D --> C
+    E --> C
 
-### Backend
-
-| Dependency | Purpose |
-|---|---|
-| Python 3.10+ | Runtime |
-| FastAPI | REST framework |
-| Uvicorn | ASGI server |
-| TinyDB | Lightweight JSON document database |
-| OpenAI SDK (via OpenRouter) | LLM API client |
-| Pydantic / Pydantic Settings | Data validation and config management |
-| python-telegram-bot | Telegram Bot API wrapper |
-| Loguru | Structured logging |
-
-### Frontend
-
-| Dependency | Purpose |
-|---|---|
-| React 19 | UI library |
-| Vite 7 | Build tool and dev server |
-| Tailwind CSS 4 | Utility-first styling |
+    C --> B
+    C --> A
+```
 
 ---
 
-## Project Structure
-
-### Backend (`memory-logger/`)
+## Repo Structure
 
 ```
 memory-logger/
-├── main.py                    # FastAPI app, CORS, Telegram bot lifecycle
-├── pyproject.toml             # Dependencies and project metadata
-├── memory_ledger.json         # TinyDB data file (auto-created)
-├── app/
-│   ├── config.py              # Pydantic Settings — env vars
-│   ├── deps.py                # Singleton repo + parser instances
-│   ├── api/
-│   │   └── routes.py          # All REST endpoint handlers
-│   ├── bot/
-│   │   └── handler.py         # Telegram commands, message handler, callbacks
-│   ├── db/
-│   │   └── repository.py      # TinyDB repository (CRUD + transactions)
-│   ├── llm/
-│   │   ├── parser.py          # IntentParser — builds prompt, calls LLM
-│   │   └── prompts.py         # System prompt (~260 lines of rules & examples)
-│   └── models/
-│       └── schemas.py         # Pydantic models (Obligation, Transaction, etc.)
-└── tests/
-    └── test_scenarios.py      # LLM scenario tests
-```
-
-### Frontend (`memory-logger-frontend/`)
-
-```
-memory-logger-frontend/
-├── index.html                 # HTML shell
-├── package.json               # Dependencies and scripts
-├── vite.config.js             # Vite config + API proxy to :8000
-├── src/
-│   ├── main.jsx               # React entry point
-│   ├── App.jsx                # Root component — tabs, stats, search, sort
-│   ├── api.js                 # Fetch wrappers for all REST endpoints
-│   ├── index.css              # Tailwind import
-│   └── components/
-│       ├── AddObligationForm.jsx      # Modal form — multi-person, split logic
-│       ├── ObligationList.jsx         # Grouping by trxn_id, sort, empty states
-│       ├── ObligationCard.jsx         # Single obligation card with inline edit
-│       ├── GroupedObligationCard.jsx   # Expandable card for multi-person splits
-│       ├── TransactionForm.jsx        # Inline payment recording form
-│       └── ConfirmDialog.jsx          # Generic Yes/No confirmation modal
-└── dist/                      # Production build output
+├── backend/                    ← FastAPI server + Telegram bot
+│   ├── main.py
+│   ├── app/
+│   │   ├── api/routes.py
+│   │   ├── bot/handler.py
+│   │   ├── db/repository.py
+│   │   ├── llm/parser.py
+│   │   └── models/schemas.py
+│   ├── tests/
+│   ├── pyproject.toml
+│   └── .env.example
+├── frontend/                   ← React 19 + Vite + Tailwind SPA
+│   ├── src/
+│   ├── public/
+│   ├── index.html
+│   └── vite.config.js
+├── .gitignore
+└── README.md
 ```
 
 ---
 
-## Setup Instructions
+## Quick Start
 
 ### Prerequisites
 
 - Python 3.10+
 - Node.js 18+
-- A Telegram bot token (from [@BotFather](https://t.me/BotFather))
-- An OpenRouter API key (from [openrouter.ai](https://openrouter.ai))
+- [OpenRouter API key](https://openrouter.ai)
+- [Telegram bot token](https://t.me/BotFather)
 
 ### Backend
 
 ```bash
-cd memory-logger
+# 1. Clone and enter the backend directory
+git clone https://github.com/your-username/memory-logger.git
+cd memory-logger/backend
 
-# Create and activate a virtual environment
+# 2. Create and activate a virtual environment
 python -m venv .venv
 source .venv/bin/activate
 
-# Install dependencies
+# 3. Install dependencies
 pip install -e .
 
-# Create .env file
+# 4. Create your .env file
 cat <<EOF > .env
 OPENROUTER_API_KEY=your_openrouter_key
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
@@ -151,27 +104,26 @@ DB_PATH=memory_ledger.json
 LLM_MODEL=google/gemini-2.0-flash-exp
 EOF
 
-# Run the server (starts FastAPI on :8000 + Telegram bot polling)
+# 5. Start the server (FastAPI on :8000 + Telegram bot polling)
 python main.py
 ```
 
 ### Frontend
 
 ```bash
-cd memory-logger-frontend
-
-# Install dependencies
+# 1. Enter the frontend directory and install dependencies
+cd memory-logger/frontend
 npm install
 
-# Start dev server (proxies API calls to localhost:8000)
+# 2. Start the dev server
 npm run dev
 ```
 
-The frontend dev server runs on `http://localhost:5173` and proxies `/obligations` and `/parse` requests to the backend at `http://localhost:8000`.
+> **Note:** The dev server runs on `http://localhost:5173` and proxies `/obligations` and `/parse` requests to the backend at `http://localhost:8000`.
 
 ---
 
-## Using the Telegram Bot
+## Telegram Bot Usage
 
 ### Commands
 
@@ -183,92 +135,104 @@ The frontend dev server runs on `http://localhost:5173` and proxies `/obligation
 | `/pending` | Show all active obligations with subtotals |
 | `/settled` | Show all settled obligations |
 
-### Adding obligations
+<details>
+<summary><strong>Adding obligations</strong></summary>
 
 Use `/create` to start a session, then describe the transaction in plain language. The bot parses your message, shows a structured field-by-field summary for review, and saves on confirmation.
 
 ```
-You:     /create
-Bot:     Let's create a new obligation. Describe the transaction...
+You:  /create
+Bot:  Let's create a new obligation. Describe the transaction...
 
-You:     Gave Sunita 5k advance, deduct 1k monthly
-Bot:     Sunita's advance: Total ₹5,000, monthly deduction ₹1,000 (~5 months).
-         Should I add this?
+You:  Gave Sunita 5k advance, deduct 1k monthly
+Bot:  Sunita's advance: Total ₹5,000, monthly deduction ₹1,000 (~5 months).
+      Should I add this?
 
-         Person: Sunita
-         Amount: ₹5,000
-         Direction: They owe you
-         Type: Recurring
-         Monthly deduction: ₹1,000
-         Note: Advance
+      Person: Sunita
+      Amount: ₹5,000
+      Direction: They owe you
+      Type: Recurring
+      Monthly deduction: ₹1,000
+      Note: Advance
 
-         [Yes ✓] [No ✗]
+      [Yes ✓] [No ✗]
 ```
 
 If something looks wrong, type a correction instead of tapping Yes — the bot re-parses with the updated info:
 
 ```
-You:     Make it 8k
-Bot:     (updated summary with Amount: ₹8,000)
-         [Yes ✓] [No ✗]
+You:  Make it 8k
+Bot:  (updated summary with Amount: ₹8,000)
+      [Yes ✓] [No ✗]
 ```
 
-### Sample queries
+**More examples:**
 
-**One-time debt — someone owes you:**
 ```
+# One-time debt — someone owes you
 /create → "Rahul owes me 2500 for concert tickets"
-```
 
-**One-time debt — you owe someone:**
-```
+# One-time debt — you owe someone
 /create → "I owe Priya 1800 for groceries"
-```
 
-**Splitting a group expense:**
-```
+# Splitting a group expense (divides by headcount: 3 people)
 /create → "Dinner with Rahul and Priya, total 3200, I paid"
-```
-The bot divides by headcount (3 people) and creates one obligation per person.
 
-**Recurring obligation:**
-```
+# Recurring obligation
 /create → "Gave Sunita 5000 advance, deduct 1000 per month"
 ```
 
-**Recording a payment:**
+</details>
+
+<details>
+<summary><strong>Recording payments & settlements</strong></summary>
+
+Settlements, queries, and payments work from normal chat — no `/create` needed.
+
 ```
+# Record a partial payment
 "Rahul paid 500"
-```
-Deducts ₹500 from Rahul's remaining balance. No `/create` needed — settlements work from normal chat.
+→ Deducts ₹500 from Rahul's remaining balance
 
-**Settling in full:**
-```
+# Settle in full
 "Sunita settled up"
-```
-Marks the obligation fully settled (remaining drops to zero).
+→ Marks the obligation fully settled (remaining drops to zero)
 
-**Editing an existing obligation:**
-```
-"Change Rahul's amount to 3000"
-```
-
-**Deleting an obligation:**
-```
-"Delete Priya's obligation"
-```
-
-**Checking balances:**
-```
+# Check balances
 "What does Rahul owe?"
 "What's pending?"
 ```
 
+</details>
+
+<details>
+<summary><strong>Editing & deleting</strong></summary>
+
+```
+# Edit an existing obligation
+"Change Rahul's amount to 3000"
+
+# Delete an obligation
+"Delete Priya's obligation"
+```
+
+When a person has multiple active obligations, the bot shows a picker:
+
+```
+Rahul has 2 active obligations. Which one?
+
+[₹1,067 (one_time) — Dinner]
+[₹5,000 (recurring) — Phone advance]
+[Cancel]
+```
+
+</details>
+
 ### Tips
 
-- You only need `/create` for **adding** new obligations. Settlements, edits, deletes, and queries all work from normal chat.
-- When a person has multiple active obligations, the bot shows a picker so you can choose the right one.
-- The bot remembers the last 10 messages, so you can answer follow-up questions naturally (e.g., "yes, 500" after the bot asks "How much did Rahul pay?").
+- You only need `/create` for **adding** new obligations. Everything else works from normal chat.
+- The bot remembers the last 10 messages, so you can answer follow-ups naturally.
+- When a person has multiple active obligations, a picker lets you choose the right one.
 
 ---
 
@@ -290,6 +254,8 @@ All endpoints are served at `http://localhost:8000`.
 ---
 
 ## Data Models
+
+The core entity is an **Obligation** — a record of money owed between you and another person. Each obligation carries a full payment history as a list of **Transactions**.
 
 ### Obligation
 
@@ -340,14 +306,14 @@ requires_confirmation bool                 Whether to show Yes/No buttons
 
 ---
 
-## How the Telegram Bot + LLM Pipeline Works
+## How the Bot + LLM Pipeline Works
+
+<details>
+<summary><strong>Expand pipeline walkthrough</strong></summary>
 
 ### Step 1: User Sends a Message
 
-A text message (or voice note) arrives in `handler.py:handle_message`. The handler:
-
-1. Clears any stale inline-keyboard state from a previous turn (`pending_message_id`).
-2. Sends a typing indicator so the user sees the bot is working.
+A text message (or voice note) arrives in `handler.py:handle_message`. The handler clears any stale inline-keyboard state from a previous turn and sends a typing indicator.
 
 ### Step 2: LLM Intent Parsing
 
@@ -356,51 +322,37 @@ A text message (or voice note) arrives in `handler.py:handle_message`. The handl
 | # | Role | Content |
 |---|---|---|
 | 1 | `system` | The full system prompt from `prompts.py` (~260 lines of rules covering action types, amount parsing, split math, direction rules, recurring vs one-time, ambiguity handling, and worked examples). |
-| 2 | `user` | **Active obligations context** — a formatted dump of every active obligation so the LLM knows the current state of the ledger. |
-| 3 | `user`/`assistant` (alternating) | **Last 10 conversation messages** — enables multi-turn resolution (e.g. answering a clarifying question). |
+| 2 | `user` | **Active obligations context** — a formatted dump of every active obligation so the LLM knows the current ledger state. |
+| 3 | `user`/`assistant` (alternating) | **Last 10 conversation messages** — enables multi-turn resolution. |
 | 4 | `user` | The current user message. |
 
-The LLM responds with JSON, which is validated into an `LLMResponse` containing a `ParsedIntent`, a `confirmation_message`, and a `requires_confirmation` flag.
+The LLM responds with JSON, validated into an `LLMResponse` containing a `ParsedIntent`, a `confirmation_message`, and a `requires_confirmation` flag.
 
 ### Step 3: Intent Routing
 
 Based on `parsed.action`, the handler branches:
 
 - **`chitchat` / `off_topic`** — Reply with the LLM's friendly message. No database action. Conversation history is cleared.
-- **`query`** — Look up obligations via `repo.get_by_person()` or `repo.get_all()`, format a summary, and reply directly. No confirmation needed.
-- **`is_ambiguous = true`** — Store the exchange in conversation history, relay the LLM's clarifying question, and wait for the user's follow-up message.
+- **`query`** — Look up obligations via `repo.get_by_person()` or `repo.get_all()`, format a summary, and reply. No confirmation needed.
+- **`is_ambiguous = true`** — Store the exchange in conversation history, relay the clarifying question, and wait for the follow-up.
 - **`add` / `settle` / `edit` / `delete`** — Proceed to the confirmation step.
 
 ### Step 4: User Confirmation
 
-For mutating actions, the bot sends the LLM's `confirmation_message` together with inline **Yes / No** buttons. The pending `ParsedIntent` is stored in `context.user_data["pending_action"]`. When the user taps a button, `handle_confirmation` fires.
+For mutating actions, the bot sends the `confirmation_message` with inline **Yes / No** buttons. The pending `ParsedIntent` is stored in `context.user_data["pending_action"]`. When the user taps a button, `handle_confirmation` fires.
 
 ### Step 5: Action Execution
 
 - **Yes** — Dispatches to the appropriate executor:
   - `_execute_add` — Creates one or more obligations. For multi-person splits, generates a shared `trxn_id` and creates one obligation per person with the per-person amount.
-  - `_execute_settle` — Records a partial payment (with amount) or marks the obligation fully settled (without amount).
+  - `_execute_settle` — Records a partial payment (with amount) or marks the obligation fully settled.
   - `_execute_edit` — Calls `repo.update()` with only the changed fields.
   - `_execute_delete` — Calls `repo.delete()` to remove the record.
-- **No** — Clears `pending_action`, appends "Cancelled" to the message.
+- **No** — Clears `pending_action`, replies "Cancelled".
 
 ### Step 6: Disambiguation
 
-When a settle, edit, or delete targets a person who has **multiple active obligations**, the bot presents an inline keyboard listing each one (showing amount, type, and note). The user picks one, and `_handle_choice()` executes the action on that specific record.
-
-Example:
-
-```
-Rahul has 2 active obligations. Which one?
-
-[₹1,067 (one_time) — Dinner]
-[₹5,000 (recurring) — Phone advance]
-[Cancel]
-```
-
-### Multi-Turn Conversation
-
-Up to 10 messages are stored in `context.user_data["history"]` and passed to the LLM on every turn. This lets the model resolve references like *"yes, 500"* after it asked *"How much did Rahul pay?"*. History is cleared once an action is confirmed or cancelled.
+When a settle, edit, or delete targets a person with **multiple active obligations**, the bot presents an inline keyboard listing each one. The user picks one, and `_handle_choice()` executes on that specific record.
 
 ### Pipeline Diagram
 
@@ -451,47 +403,34 @@ LLM returns LLMResponse { parsed, confirmation_message, requires_confirmation }
                    TinyDB (memory_ledger.json)
 ```
 
+</details>
+
 ---
 
 ## Frontend Features
 
-### Summary Dashboard
+The React SPA is an independent entry point into the same data store as the Telegram bot, with live polling every 5 seconds.
 
-The top of the page shows three stat cards:
+- **Stats bar** — Owed to you / You owe / Net balance, calculated from remaining amounts across all active obligations
+- **Tabs** — Active (filterable by direction) and Settled (read-only)
+- **Search, filter, sort** — Filter by person name; sort by newest, highest amount, or alphabetical
+- **ObligationCard** — Amount, type badge, direction indicator (green = owes me, orange = I owe), transaction history, and an overflow menu for Settle / Edit / Delete
+- **GroupedObligationCard** — Obligations sharing a `trxn_id` are collapsed into one expandable card showing group total, headcount, and avatar initials; expands to per-person rows
+- **AddObligationForm** — Modal with multi-person chip input, auto-split, direction toggle, type toggle, and optional monthly deduction field for recurring obligations
 
-- **Owed to you** — Total remaining across all `owes_me` obligations
-- **You owe** — Total remaining across all `i_owe` obligations
-- **Net balance** — Difference between the two
+---
 
-### Tabs
+## Tech Stack
 
-- **Active** — Obligations with `status = "active"`. Supports direction filtering (All / They owe me / I owe).
-- **Settled** — Obligations with `status = "settled"`. Read-only view.
-
-### Search, Filter, and Sort
-
-- **Search** — Filter by person name (case-insensitive substring match).
-- **Direction filter** — All, They owe me, I owe (active tab only).
-- **Sort** — Newest first, Highest amount, Alphabetical.
-
-### Obligation Cards
-
-Single obligations render as **ObligationCard** — showing person name, amount, type badge, direction indicator (green left border for "owes me", orange for "I owe"), and an overflow menu with Settle, Edit, and Delete actions. Recurring obligations show a "Record Payment" button. Each card can expand to show full transaction history.
-
-### Grouped Cards for Multi-Person Splits
-
-Obligations sharing a `trxn_id` are rendered as a **GroupedObligationCard** — an expandable card showing the group note, total amount, person count, and avatar circles with initials. Expanding reveals per-person rows with individual amounts, payment history, and action menus.
-
-### Add Obligation Form
-
-A modal form supporting:
-
-- Multi-person chip input (press Enter or comma to add names)
-- Total amount (auto-split equally among all people)
-- Direction toggle and type toggle
-- Conditional monthly deduction field for recurring obligations
-- Optional note
-
-### Auto-Refresh
-
-The dashboard polls the backend every 5 seconds to stay in sync with changes made via the Telegram bot.
+| Layer | Technology |
+|---|---|
+| Runtime | [Python 3.10+](https://www.python.org/) |
+| API Framework | [FastAPI](https://fastapi.tiangolo.com/) + [Uvicorn](https://www.uvicorn.org/) |
+| Database | [TinyDB](https://tinydb.readthedocs.io/) (JSON document store) |
+| Data Validation | [Pydantic](https://docs.pydantic.dev/) + Pydantic Settings |
+| LLM | [Gemini Flash](https://openrouter.ai/google/gemini-2.0-flash-exp) via [OpenRouter](https://openrouter.ai/) (OpenAI-compatible SDK) |
+| Bot | [python-telegram-bot](https://python-telegram-bot.org/) |
+| Frontend | [React 19](https://react.dev/) |
+| Build Tool | [Vite 7](https://vitejs.dev/) |
+| Styling | [Tailwind CSS 4](https://tailwindcss.com/) |
+| Logging | [Loguru](https://loguru.readthedocs.io/) |
