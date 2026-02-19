@@ -1,0 +1,177 @@
+Model: google/gemini-2.5-flash-lite
+
+============================================================
+SCENARIO 1: Equal split - petrol with Shivam
+============================================================
+
+  User: Weekend vacation with Shivam. Record petrol charges for car of 7K. Needs to be split equally.
+
+  Bot: Okay, Shivam owes ₹3,500 for petrol charges for the weekend vacation. Should I log this?
+
+  [action=add, persons=["Shivam"], amount=3500.0, type=one_time, ambiguous=false]
+
+============================================================
+SCENARIO 2: Multi-turn - Ananya payment
+============================================================
+
+  User: Payment to be received from Ananya
+
+  Bot: I can log that Ananya owes you money. How much is the payment?
+
+  [action=add, persons=["Ananya"], amount=None, type=None, ambiguous=true, question="How much is Ananya supposed to pay you?"]
+
+  User: 8900rs
+
+  Bot: Ananya owes you ₹8,900. Should I log this?
+
+  [action=add, persons=["Ananya"], amount=8900.0, type=one_time, ambiguous=false]
+
+============================================================
+SCENARIO 3: Unequal split - stress test
+============================================================
+
+  User: Brunch with office friends at Daddy's. Total bill 3000. Total 4 people - Shivam, Yashasvi and Anjali. Anjali will pay only 1000rs while remaining amount split equally between the other 3.
+
+  Bot: Brunch split: Shivam owes ₹667, Yashasvi owes ₹667, and Anjali owes ₹1000. Should I log this?
+
+  [action=add, persons=["Shivam", "Yashasvi"], amount=667.0, type=one_time, ambiguous=false]
+
+============================================================
+SCENARIO 4: Recurring advance with multiple amounts — Anita double advance
+============================================================
+
+  User: Anita's salary is 4500 rs per month. I have already paid her advance 500rs for her kid's fees and 500rs again for some emergency as cash. Record this so that I don't forget this when I am paying her salary.
+
+  Bot: Anita's advance: Total ₹1,000 (₹500 for kid's fees + ₹500 emergency cash). This will be deducted from her salary. Should I log this?
+
+  [action=add, persons=["Anita"], amount=1000.0, type=recurring, ambiguous=false]
+
+============================================================
+SCENARIO 5: Unnamed person — girlfriend
+============================================================
+
+  User: Dinner date with girlfriend, Total bill is 5K. Bill needs to be split equally
+
+  Bot: I can help split the dinner bill! Could you tell me who was there and who paid?
+
+  [action=add, persons=[], amount=None, type=one_time, ambiguous=true, question="Who was at the dinner date with you, and who paid the bill?"]
+
+============================================================
+SCENARIO 6: Missing amount — bill split with no total
+============================================================
+
+  User: Brunch with office friends at Bier Library. Total bill needs to be split equally.
+
+  Bot: I can help split the bill for your brunch at Bier Library. Could you please tell me who joined you and the total amount?
+
+  [action=add, persons=[], amount=None, type=one_time, ambiguous=true, question="Who was at brunch with you, and what was the total bill?"]
+
+============================================================
+SCENARIO 7: Reversed direction — user owes someone else
+============================================================
+
+  User: I owe Rahul 5000 for the concert tickets he booked
+
+  Bot: You owe Rahul ₹5,000 for concert tickets. Should I log this?
+
+  [action=add, persons=["Rahul"], amount=5000.0, type=one_time, ambiguous=false]
+
+============================================================
+SCENARIO 8: Hinglish input
+============================================================
+
+  User: Sunita ko 5800 diya phone ke liye, har mahine 1000 katna
+
+  Bot: Sunita's phone payment: Total ₹5,800, with ₹1,000 deducted monthly (~5.8 months). Should I add this?
+
+  [action=add, persons=["Sunita"], amount=5800.0, type=recurring, ambiguous=false, per_cycle=1000.0]
+
+============================================================
+SCENARIO 9: Off-topic / non-financial message
+============================================================
+
+  User: Remind me to call mom tomorrow at 10am
+
+  Bot: I'm a financial memory assistant — I can't set reminders, but I can help you log expenses or check balances!
+
+  [action=off_topic, persons=[], amount=None, type=None, ambiguous=false]
+
+============================================================
+SCENARIO 10: Head-count split math — user included in count
+============================================================
+
+  User: Dinner at Bombay Canteen. Total bill 4800. 4 people — me, Kunal, Priya and Sid. Split equally.
+
+  Bot: Dinner split: Kunal owes ₹1,200, Priya owes ₹1,200, and Sid owes ₹1,200. Should I log this?
+
+  [action=add, persons=["Kunal", "Priya", "Sid"], amount=1200.0, type=one_time, ambiguous=false]
+
+============================================================
+SCENARIO 11: Tip/tax on top of base — derived arithmetic
+============================================================
+
+  User: Lunch with Meera, bill was 2000 plus 18% GST. I paid the whole thing, split equally.
+
+  Bot: Lunch split: Meera owes ₹1,180. Should I log this?
+
+  [action=add, persons=["Meera"], amount=1180.0, type=one_time, ambiguous=false]
+
+============================================================
+SCENARIO 12: Partial settlement — Sunita paid 2000
+============================================================
+
+  User: Sunita ne 2000 de diye
+
+  Bot: Sunita paid ₹2,000. Should I update her pending obligation?
+
+  [action=settle, persons=["Sunita"], amount=2000.0, type=None, ambiguous=false]
+
+  User: Abhi Sunita ke kitna amount due hai?
+
+  Bot: Let me check how much Sunita owes.
+
+  [action=query, persons=["Sunita"], amount=None, type=None, ambiguous=false]
+
+============================================================
+SCENARIO 13: Edit existing obligation — change monthly deduction
+============================================================
+
+  User: Change Sunita's monthly deduction to 1500 instead of 1000
+
+  Bot: I've updated Sunita's monthly deduction to ₹1,500. The remaining balance is ₹3,800, so this will now take approximately 3 months to repay.
+
+  [action=edit, persons=["Sunita"], amount=1500.0, type=recurring, ambiguous=false, per_cycle=1500.0]
+
+============================================================
+SCENARIO 14: Full settlement — Shivam paid back
+============================================================
+
+  User: Shivam paid me back the 3500 for petrol
+
+  Bot: Shivam paid back ₹3,500 for petrol. Should I update his pending obligation?
+
+  [action=settle, persons=["Shivam"], amount=3500.0, type=one_time, ambiguous=false]
+
+============================================================
+SCENARIO 15: Chitchat — simple greeting
+============================================================
+
+  User: Hi!
+
+  Bot: Hey there! Send me a message to log an expense or check what's pending.
+
+  [action=chitchat, persons=[], amount=None, type=None, ambiguous=false]
+
+============================================================
+SCENARIO 16: Settle with multiple obligations — Anjali partial
+============================================================
+
+  User: Anjali just paid 1000 for the brunch
+
+  Bot: Anjali paid ₹1,000 for the brunch at Daddy's. Should I update her pending obligation?
+
+  [action=settle, persons=["Anjali"], amount=1000.0, type=one_time, ambiguous=false]
+
+============================================================
+Done. Review results above or in tests/results.log
+============================================================
