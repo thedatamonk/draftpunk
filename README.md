@@ -1,6 +1,6 @@
 <div align="center">
 
-# Memory Logger
+# Spendly
 
 Personal finance tracker powered by NLP — track debts conversationally via Telegram or a web dashboard.
 
