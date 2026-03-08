@@ -1,4 +1,5 @@
 import uuid
+from contextlib import contextmanager
 from datetime import datetime
 
 from agents import function_tool
@@ -8,8 +9,13 @@ from app.db.models import Debt
 from app.db.repository import DebtRepository
 
 
-def _get_repo() -> DebtRepository:
-    return DebtRepository(SessionLocal())
+@contextmanager
+def _get_repo():
+    db = SessionLocal()
+    try:
+        yield DebtRepository(db)
+    finally:
+        db.close()
 
 
 def _format_debt(debt: Debt) -> str:
@@ -41,19 +47,19 @@ def create_debt(
         expected_per_cycle: Monthly deduction amount (only for recurring debts).
         note: Optional description of what the debt is for.
     """
-    repo = _get_repo()
-    debt = Debt(
-        person_name=person_name,
-        type=type,
-        direction=direction,
-        total_amount=amount,
-        expected_per_cycle=expected_per_cycle,
-        remaining_amount=amount,
-        note=note,
-        created_at=datetime.now(),
-    )
-    created = repo.add(debt)
-    return f"Created debt #{created.id}: {_format_debt(created)}"
+    with _get_repo() as repo:
+        debt = Debt(
+            person_name=person_name,
+            type=type,
+            direction=direction,
+            total_amount=amount,
+            expected_per_cycle=expected_per_cycle,
+            remaining_amount=amount,
+            note=note,
+            created_at=datetime.now(),
+        )
+        created = repo.add(debt)
+        return f"Created debt #{created.id}: {_format_debt(created)}"
 
 
 @function_tool
@@ -74,27 +80,27 @@ def create_split_debts(
         direction: Either "owes_me" or "i_owe".
         note: Optional description.
     """
-    repo = _get_repo()
-    headcount = len(person_names) + 1
-    per_person = round(total_amount / headcount)
-    trxn_id = str(uuid.uuid4())
+    with _get_repo() as repo:
+        headcount = len(person_names) + 1
+        per_person = round(total_amount / headcount)
+        trxn_id = str(uuid.uuid4())
 
-    created = []
-    for name in person_names:
-        debt = Debt(
-            trxn_id=trxn_id,
-            person_name=name,
-            type="one_time",
-            direction=direction,
-            total_amount=per_person,
-            remaining_amount=per_person,
-            note=note,
-            created_at=datetime.now(),
-        )
-        created.append(repo.add(debt))
+        debts = []
+        for name in person_names:
+            debts.append(Debt(
+                trxn_id=trxn_id,
+                person_name=name,
+                type="one_time",
+                direction=direction,
+                total_amount=per_person,
+                remaining_amount=per_person,
+                note=note,
+                created_at=datetime.now(),
+            ))
+        created = repo.add_all(debts)
 
-    lines = [f"  {_format_debt(d)}" for d in created]
-    return f"Created split (₹{total_amount:,.0f} total, ₹{per_person:,.0f}/person):\n" + "\n".join(lines)
+        lines = [f"  {_format_debt(d)}" for d in created]
+        return f"Created split (₹{total_amount:,.0f} total, ₹{per_person:,.0f}/person):\n" + "\n".join(lines)
 
 
 @function_tool
@@ -110,25 +116,25 @@ def query_debts(
         status: Filter by status: "active" or "settled".
         direction: Filter by direction: "owes_me" or "i_owe".
     """
-    repo = _get_repo()
-    if person_name:
-        debts = repo.get_by_person(person_name, status=status or "active")
-    else:
-        debts = repo.get_all(status=status, direction=direction)
-
-    if not debts:
-        filters = []
+    with _get_repo() as repo:
         if person_name:
-            filters.append(f"person={person_name}")
-        if status:
-            filters.append(f"status={status}")
-        if direction:
-            filters.append(f"direction={direction}")
-        filter_str = ", ".join(filters) if filters else "any"
-        return f"No debts found ({filter_str})."
+            debts = repo.get_by_person(person_name, status=status or "active", direction=direction)
+        else:
+            debts = repo.get_all(status=status, direction=direction)
 
-    lines = [_format_debt(d) for d in debts]
-    return f"Found {len(debts)} debt(s):\n" + "\n".join(lines)
+        if not debts:
+            filters = []
+            if person_name:
+                filters.append(f"person={person_name}")
+            if status:
+                filters.append(f"status={status}")
+            if direction:
+                filters.append(f"direction={direction}")
+            filter_str = ", ".join(filters) if filters else "any"
+            return f"No debts found ({filter_str})."
+
+        lines = [_format_debt(d) for d in debts]
+        return f"Found {len(debts)} debt(s):\n" + "\n".join(lines)
 
 
 @function_tool
@@ -148,28 +154,28 @@ def edit_debt(
         expected_per_cycle: New monthly deduction amount (optional).
         note: New note (optional).
     """
-    repo = _get_repo()
-    debt = repo.get(debt_id)
-    if debt is None:
-        return f"Debt #{debt_id} not found."
+    with _get_repo() as repo:
+        debt = repo.get(debt_id)
+        if debt is None:
+            return f"Debt #{debt_id} not found."
 
-    updates = {}
-    if person_name is not None:
-        updates["person_name"] = person_name
-    if total_amount is not None:
-        already_paid = debt.total_amount - debt.remaining_amount
-        updates["total_amount"] = total_amount
-        updates["remaining_amount"] = max(total_amount - already_paid, 0)
-    if expected_per_cycle is not None:
-        updates["expected_per_cycle"] = expected_per_cycle
-    if note is not None:
-        updates["note"] = note
+        updates = {}
+        if person_name is not None:
+            updates["person_name"] = person_name
+        if total_amount is not None:
+            already_paid = debt.total_amount - debt.remaining_amount
+            updates["total_amount"] = total_amount
+            updates["remaining_amount"] = max(total_amount - already_paid, 0)
+        if expected_per_cycle is not None:
+            updates["expected_per_cycle"] = expected_per_cycle
+        if note is not None:
+            updates["note"] = note
 
-    if not updates:
-        return "No fields to update."
+        if not updates:
+            return "No fields to update."
 
-    updated = repo.update(debt_id, **updates)
-    return f"Updated debt: {_format_debt(updated)}"
+        updated = repo.update(debt_id, **updates)
+        return f"Updated debt: {_format_debt(updated)}"
 
 
 @function_tool
@@ -185,16 +191,16 @@ def record_payment(
         amount: The payment amount.
         note: Optional note for this payment.
     """
-    repo = _get_repo()
-    debt = repo.get(debt_id)
-    if debt is None:
-        return f"Debt #{debt_id} not found."
-    if debt.status == "settled":
-        return f"Debt #{debt_id} is already settled."
+    with _get_repo() as repo:
+        debt = repo.get(debt_id)
+        if debt is None:
+            return f"Debt #{debt_id} not found."
+        if debt.status == "settled":
+            return f"Debt #{debt_id} is already settled."
 
-    updated = repo.add_transaction(debt_id, amount, note)
-    status_msg = " (now fully settled)" if updated.status == "settled" else f" (₹{updated.remaining_amount:,.0f} remaining)"
-    return f"Recorded ₹{amount:,.0f} payment on debt #{debt_id}{status_msg}"
+        updated = repo.add_transaction(debt_id, amount, note)
+        status_msg = " (now fully settled)" if updated.status == "settled" else f" (₹{updated.remaining_amount:,.0f} remaining)"
+        return f"Recorded ₹{amount:,.0f} payment on debt #{debt_id}{status_msg}"
 
 
 @function_tool
@@ -204,15 +210,15 @@ def settle_debt(debt_id: int) -> str:
     Args:
         debt_id: The ID of the debt to settle.
     """
-    repo = _get_repo()
-    debt = repo.get(debt_id)
-    if debt is None:
-        return f"Debt #{debt_id} not found."
-    if debt.status == "settled":
-        return f"Debt #{debt_id} is already settled."
+    with _get_repo() as repo:
+        debt = repo.get(debt_id)
+        if debt is None:
+            return f"Debt #{debt_id} not found."
+        if debt.status == "settled":
+            return f"Debt #{debt_id} is already settled."
 
-    settled = repo.settle(debt_id)
-    return f"Settled debt #{debt_id}: {settled.person_name}'s balance is now ₹0."
+        settled = repo.settle(debt_id)
+        return f"Settled debt #{debt_id}: {settled.person_name}'s balance is now ₹0."
 
 
 @function_tool
@@ -222,7 +228,7 @@ def delete_debt(debt_id: int) -> str:
     Args:
         debt_id: The ID of the debt to delete.
     """
-    repo = _get_repo()
-    if repo.delete(debt_id):
-        return f"Deleted debt #{debt_id}."
-    return f"Debt #{debt_id} not found."
+    with _get_repo() as repo:
+        if repo.delete(debt_id):
+            return f"Deleted debt #{debt_id}."
+        return f"Debt #{debt_id} not found."

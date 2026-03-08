@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { updateObligation } from '../api'
+import { updateDebt } from '../api'
 import TransactionForm from './TransactionForm'
 
 const fmt = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
@@ -66,7 +66,7 @@ export default function ObligationCard({ obligation, onSettle, onDelete, onRefre
       if (obligation.type === 'recurring' && form.expected_per_cycle !== '') {
         payload.expected_per_cycle = Number(form.expected_per_cycle)
       }
-      await updateObligation(obligation.id, payload)
+      await updateDebt(obligation.id, payload)
       setEditing(false)
       onRefresh()
     } catch {

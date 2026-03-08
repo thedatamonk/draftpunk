@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { listObligations } from './api'
+import { listDebts } from './api'
 import AddObligationForm from './components/AddObligationForm'
 import ObligationList from './components/ObligationList'
 import ConfirmDialog from './components/ConfirmDialog'
-import { settleObligation, deleteObligation } from './api'
+import { settleDebt, deleteDebt } from './api'
 
 const formatINR = (n) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n)
@@ -24,7 +24,7 @@ export default function App() {
     setLoading(true)
     setError(null)
     try {
-      const data = await listObligations(activeTab)
+      const data = await listDebts(activeTab)
       setObligations(data)
       if (activeTab === 'active') setAllActive(data)
     } catch (err) {
@@ -37,8 +37,8 @@ export default function App() {
   const refreshAll = useCallback(async () => {
     try {
       const [tabData, activeData] = await Promise.all([
-        listObligations(activeTab),
-        activeTab !== 'active' ? listObligations('active') : Promise.resolve(null),
+        listDebts(activeTab),
+        activeTab !== 'active' ? listDebts('active') : Promise.resolve(null),
       ])
       setObligations(tabData)
       if (activeData) setAllActive(activeData)
@@ -86,7 +86,7 @@ export default function App() {
     setConfirm({
       message: `Mark ${ob.person_name}'s dues (${formatINR(ob.remaining_amount)}) as fully settled?`,
       action: async () => {
-        await settleObligation(ob.id)
+        await settleDebt(ob.id)
         setConfirm(null)
         refreshAll()
       },
@@ -97,7 +97,7 @@ export default function App() {
     setConfirm({
       message: `Delete ${ob.person_name}'s dues? This cannot be undone.`,
       action: async () => {
-        await deleteObligation(ob.id)
+        await deleteDebt(ob.id)
         setConfirm(null)
         refreshAll()
       },

@@ -15,15 +15,23 @@ class DebtRepository:
         self.db.refresh(debt)
         return debt
 
+    def add_all(self, debts: list[Debt]) -> list[Debt]:
+        self.db.add_all(debts)
+        self.db.commit()
+        for debt in debts:
+            self.db.refresh(debt)
+        return debts
+
     def get(self, debt_id: int) -> Debt | None:
         return self.db.get(Debt, debt_id)
 
-    def get_by_person(self, name: str, status: str = "active") -> list[Debt]:
-        return (
-            self.db.query(Debt)
-            .filter(Debt.person_name.ilike(name), Debt.status == status)
-            .all()
+    def get_by_person(self, name: str, status: str = "active", direction: str | None = None) -> list[Debt]:
+        query = self.db.query(Debt).filter(
+            Debt.person_name.ilike(name), Debt.status == status
         )
+        if direction:
+            query = query.filter(Debt.direction == direction)
+        return query.all()
 
     def get_all(self, status: str | None = None, direction: str | None = None) -> list[Debt]:
         query = self.db.query(Debt)

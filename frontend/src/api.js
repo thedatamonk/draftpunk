@@ -3,16 +3,16 @@ const json = (res) => {
   return res.json()
 }
 
-export function listObligations(status) {
+export function listDebts(status) {
   const params = status ? `?status=${status}` : ''
   return fetch(`/debts${params}`).then(json)
 }
 
-export function getObligation(id) {
+export function getDebt(id) {
   return fetch(`/debts/${id}`).then(json)
 }
 
-export function createObligation(data) {
+export function createDebt(data) {
   return fetch('/debts', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -20,7 +20,7 @@ export function createObligation(data) {
   }).then(json)
 }
 
-export function updateObligation(id, data) {
+export function updateDebt(id, data) {
   return fetch(`/debts/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -28,7 +28,7 @@ export function updateObligation(id, data) {
   }).then(json)
 }
 
-export function deleteObligation(id) {
+export function deleteDebt(id) {
   return fetch(`/debts/${id}`, { method: 'DELETE' }).then(json)
 }
 
@@ -40,6 +40,6 @@ export function addTransaction(id, data) {
   }).then(json)
 }
 
-export function settleObligation(id) {
+export function settleDebt(id) {
   return fetch(`/debts/${id}/settle`, { method: 'POST' }).then(json)
 }

@@ -1,5 +1,6 @@
 from agents import Agent
 
+from app.config import get_settings
 from app.tools import (
     create_debt,
     create_split_debts,
@@ -63,9 +64,11 @@ You can create, query, edit, settle, record payments on, and delete debts using 
 - Keep responses short — this is a chat interface, not an essay
 """
 
+settings = get_settings()
+
 memory_agent = Agent(
     name="MemoryLedger",
-    model="gpt-4o-mini",
+    model=settings.llm_model,
     instructions=SYSTEM_PROMPT,
     tools=[
         create_debt,
