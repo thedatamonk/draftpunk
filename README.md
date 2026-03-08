@@ -1,16 +1,14 @@
 <div align="center">
 
-# Memory Logger
+# Spendly
 
-Track debts conversationally via Telegram or a web dashboard — powered by an AI agent.
-
-![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)
-![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
-![OpenAI](https://img.shields.io/badge/OpenAI-Agents%20SDK-412991?logo=openai&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-SQLAlchemy-003B57?logo=sqlite&logoColor=white)
+Track debts conversationally via Telegram or a web dashboard — powered by OpenAI Agent.
 
 </div>
+
+---
+
+Spendly is a personal finance tracker that lets you manage money owed between friends and family using natural language. Say things like *"Gave Rahul 5k for groceries"* or *"Dinner with Priya and Amit, 3200, I paid"* — the AI agent parses your message, handles splits, tracks recurring debts with monthly deductions, and manages partial payments. It understands Hinglish, disambiguates when someone has multiple debts, and asks for clarification when your message is vague. Everything works through a Telegram bot or a React web dashboard backed by the same API.
 
 ---
 
