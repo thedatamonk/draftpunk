@@ -1,13 +1,9 @@
-import asyncio
+import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-# Ensure the working directory is always the backend folder so that
-# relative paths (.env, memory_ledger.json) resolve correctly whether
-# main.py is invoked from the repo root or from inside backend/.
 _HERE = Path(__file__).parent.resolve()
-import os
 os.chdir(_HERE)
 
 from fastapi import FastAPI, Request, Response
@@ -16,8 +12,8 @@ from loguru import logger
 
 from app.api.routes import router
 from app.config import get_settings
+from app.db.database import init_db
 
-# Configure loguru
 logger.remove()
 logger.add(sys.stderr, level="INFO", format="{time:HH:mm:ss} | {level:<7} | {message}")
 
@@ -26,7 +22,11 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: launch the Telegram bot
+    # Initialize database
+    init_db()
+    logger.info("Database initialized")
+
+    # Start Telegram bot
     if not settings.telegram_bot_token:
         logger.warning("TELEGRAM_BOT_TOKEN not set — bot will not start")
     else:
@@ -41,7 +41,6 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # Shutdown: stop the Telegram bot
     bot_app = getattr(app.state, "bot", None)
     if bot_app:
         await bot_app.updater.stop()
@@ -50,7 +49,7 @@ async def lifespan(app: FastAPI):
         logger.info("Telegram bot stopped")
 
 
-app = FastAPI(title="Memory Ledger", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Memory Ledger", version="0.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -74,5 +73,4 @@ app.include_router(router)
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, app_dir=str(_HERE))
