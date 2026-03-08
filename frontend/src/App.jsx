@@ -1,15 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { listDebts } from './api'
-import AddObligationForm from './components/AddObligationForm'
-import ObligationList from './components/ObligationList'
+import { listDebts, settleDebt, deleteDebt } from './api'
+import AddDebtForm from './components/AddDebtForm'
+import DebtList from './components/DebtList'
 import ConfirmDialog from './components/ConfirmDialog'
-import { settleDebt, deleteDebt } from './api'
 
 const formatINR = (n) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n)
 
 export default function App() {
-  const [obligations, setObligations] = useState([])
+  const [debts, setDebts] = useState([])
   const [allActive, setAllActive] = useState([])
   const [activeTab, setActiveTab] = useState('active')
   const [directionFilter, setDirectionFilter] = useState('all')
@@ -20,15 +19,15 @@ export default function App() {
   const [error, setError] = useState(null)
   const [confirm, setConfirm] = useState(null)
 
-  const fetchObligations = useCallback(async () => {
+  const fetchDebts = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const data = await listDebts(activeTab)
-      setObligations(data)
+      setDebts(data)
       if (activeTab === 'active') setAllActive(data)
     } catch (err) {
-      setError(err.detail || 'Failed to load obligations')
+      setError(err.detail || 'Failed to load debts')
     } finally {
       setLoading(false)
     }
@@ -40,64 +39,63 @@ export default function App() {
         listDebts(activeTab),
         activeTab !== 'active' ? listDebts('active') : Promise.resolve(null),
       ])
-      setObligations(tabData)
+      setDebts(tabData)
       if (activeData) setAllActive(activeData)
       else setAllActive(tabData)
     } catch (err) {
-      setError(err.detail || 'Failed to load obligations')
+      setError(err.detail || 'Failed to load debts')
     }
   }, [activeTab])
 
   useEffect(() => {
-    fetchObligations()
-  }, [fetchObligations])
+    fetchDebts()
+  }, [fetchDebts])
 
   useEffect(() => {
     const interval = setInterval(refreshAll, 5000)
     return () => clearInterval(interval)
   }, [refreshAll])
 
-  // Summary stats from allActive
   const stats = useMemo(() => {
     let owedToYou = 0
     let youOwe = 0
-    for (const o of allActive) {
-      if (o.direction === 'i_owe') youOwe += o.remaining_amount
-      else owedToYou += o.remaining_amount
+    for (const d of allActive) {
+      if (d.direction === 'i_owe') youOwe += d.remaining_amount
+      else owedToYou += d.remaining_amount
     }
     return { owedToYou, youOwe, net: owedToYou - youOwe }
   }, [allActive])
 
   const directionFiltered = activeTab === 'active' && directionFilter !== 'all'
-    ? obligations.filter((o) =>
+    ? debts.filter((d) =>
         directionFilter === 'i_owe'
-          ? o.direction === 'i_owe'
-          : o.direction !== 'i_owe'
+          ? d.direction === 'i_owe'
+          : d.direction !== 'i_owe'
       )
-    : obligations
+    : debts
 
   const filtered = searchQuery
-    ? directionFiltered.filter((o) =>
-        o.person_name.toLowerCase().includes(searchQuery.toLowerCase())
+    ? directionFiltered.filter((d) =>
+        d.person_name.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : directionFiltered
 
-  const handleSettle = (ob) => {
+  const handleSettle = (debt) => {
     setConfirm({
-      message: `Mark ${ob.person_name}'s dues (${formatINR(ob.remaining_amount)}) as fully settled?`,
+      message: `Mark ${debt.person_name}'s dues (${formatINR(debt.remaining_amount)}) as fully settled?`,
       action: async () => {
-        await settleDebt(ob.id)
+        await settleDebt(debt.id)
         setConfirm(null)
         refreshAll()
       },
     })
   }
 
-  const handleDelete = (ob) => {
+  const handleDelete = (debt) => {
     setConfirm({
-      message: `Delete ${ob.person_name}'s dues? This cannot be undone.`,
+      message: `Delete ${debt.person_name}'s dues? This cannot be undone.`,
       action: async () => {
-        await deleteDebt(ob.id)
+        await deleteDebt(debt.id)
         setConfirm(null)
         refreshAll()
       },
@@ -226,15 +224,15 @@ export default function App() {
           <div className="text-center py-12">
             <p className="text-sm text-red-600 mb-2">{error}</p>
             <button
-              onClick={fetchObligations}
+              onClick={fetchDebts}
               className="text-sm text-gray-600 underline hover:text-gray-800"
             >
               Retry
             </button>
           </div>
         ) : (
-          <ObligationList
-            obligations={filtered}
+          <DebtList
+            debts={filtered}
             sortBy={sortBy}
             onSettle={handleSettle}
             onDelete={handleDelete}
@@ -247,7 +245,7 @@ export default function App() {
       </div>
 
       {showAddForm && (
-        <AddObligationForm
+        <AddDebtForm
           onClose={() => setShowAddForm(false)}
           onRefresh={refreshAll}
         />

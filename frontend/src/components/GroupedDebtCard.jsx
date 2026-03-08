@@ -17,7 +17,7 @@ function getAvatarColor(name) {
   return avatarColors[Math.abs(hash) % avatarColors.length]
 }
 
-export default function GroupedObligationCard({ obligations, onSettle, onDelete, onRefresh }) {
+export default function GroupedDebtCard({ debts, onSettle, onDelete, onRefresh }) {
   const [expanded, setExpanded] = useState(false)
   const [payingId, setPayingId] = useState(null)
   const [menuId, setMenuId] = useState(null)
@@ -28,16 +28,15 @@ export default function GroupedObligationCard({ obligations, onSettle, onDelete,
   const [editError, setEditError] = useState(null)
   const menuRef = useRef(null)
 
-  const first = obligations[0]
+  const first = debts[0]
   const note = first.note
   const direction = first.direction
   const type = first.type
   const createdAt = first.created_at
 
-  const totalRemaining = obligations.reduce((sum, o) => sum + o.remaining_amount, 0)
-  const totalAmount = obligations.reduce((sum, o) => sum + o.total_amount, 0)
+  const totalRemaining = debts.reduce((sum, d) => sum + d.remaining_amount, 0)
+  const totalAmount = debts.reduce((sum, d) => sum + d.total_amount, 0)
 
-  // Close overflow menu on outside click
   useEffect(() => {
     if (menuId === null) return
     const handler = (e) => {
@@ -49,19 +48,19 @@ export default function GroupedObligationCard({ obligations, onSettle, onDelete,
     return () => document.removeEventListener('mousedown', handler)
   }, [menuId])
 
-  const startEditing = (ob) => {
-    setEditingId(ob.id)
+  const startEditing = (debt) => {
+    setEditingId(debt.id)
     setEditForm({
-      person_name: ob.person_name,
-      total_amount: ob.total_amount,
-      expected_per_cycle: ob.expected_per_cycle || '',
-      note: ob.note || '',
+      person_name: debt.person_name,
+      total_amount: debt.total_amount,
+      expected_per_cycle: debt.expected_per_cycle || '',
+      note: debt.note || '',
     })
     setEditError(null)
     setMenuId(null)
   }
 
-  const handleSave = async (obId) => {
+  const handleSave = async (debtId) => {
     setEditError(null)
 
     if (!editForm.person_name.trim()) {
@@ -75,8 +74,8 @@ export default function GroupedObligationCard({ obligations, onSettle, onDelete,
       return
     }
 
-    const ob = obligations.find(o => o.id === obId)
-    if (ob?.type === 'recurring' && editForm.expected_per_cycle !== '') {
+    const debt = debts.find(d => d.id === debtId)
+    if (debt?.type === 'recurring' && editForm.expected_per_cycle !== '') {
       const monthly = Number(editForm.expected_per_cycle)
       if (monthly > totalAmt) {
         setEditError('Monthly deduction cannot exceed total amount')
@@ -91,10 +90,10 @@ export default function GroupedObligationCard({ obligations, onSettle, onDelete,
         total_amount: totalAmt,
         note: editForm.note || null,
       }
-      if (ob?.type === 'recurring' && editForm.expected_per_cycle !== '') {
+      if (debt?.type === 'recurring' && editForm.expected_per_cycle !== '') {
         payload.expected_per_cycle = Number(editForm.expected_per_cycle)
       }
-      await updateDebt(obId, payload)
+      await updateDebt(debtId, payload)
       setEditingId(null)
       onRefresh()
     } catch {
@@ -126,7 +125,7 @@ export default function GroupedObligationCard({ obligations, onSettle, onDelete,
               {type === 'recurring' ? 'Recurring' : 'One-time'}
             </span>
             <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600">
-              {obligations.length} people
+              {debts.length} people
             </span>
           </div>
           <p className="text-xs text-gray-400 mt-1">
@@ -155,37 +154,36 @@ export default function GroupedObligationCard({ obligations, onSettle, onDelete,
       {/* Person rows (expanded) */}
       {expanded && (
         <div className="border-t border-gray-100">
-          {obligations.map((ob) => {
-            const isSettled = ob.status === 'settled'
-            const isPayingThis = payingId === ob.id
-            const isMenuOpen = menuId === ob.id
-            const isEditing = editingId === ob.id
-            const isShowingTx = showTransactionsId === ob.id
-            const txCount = ob.transactions.length
+          {debts.map((debt) => {
+            const isSettled = debt.status === 'settled'
+            const isPayingThis = payingId === debt.id
+            const isMenuOpen = menuId === debt.id
+            const isEditing = editingId === debt.id
+            const isShowingTx = showTransactionsId === debt.id
+            const txCount = debt.transactions.length
 
-            // Build per-person metadata
             const metaParts = []
-            if (ob.type === 'recurring' && ob.expected_per_cycle) {
-              metaParts.push(`${fmt.format(ob.expected_per_cycle)}/month`)
+            if (debt.type === 'recurring' && debt.expected_per_cycle) {
+              metaParts.push(`${fmt.format(debt.expected_per_cycle)}/month`)
             }
 
             return (
-              <div key={ob.id} className={`px-4 py-3 border-b border-gray-50 last:border-b-0 ${isSettled ? 'opacity-50' : ''}`}>
+              <div key={debt.id} className={`px-4 py-3 border-b border-gray-50 last:border-b-0 ${isSettled ? 'opacity-50' : ''}`}>
                 <div className="flex items-center gap-3">
                   {/* Avatar */}
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0 ${getAvatarColor(ob.person_name)}`}>
-                    {ob.person_name.charAt(0).toUpperCase()}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0 ${getAvatarColor(debt.person_name)}`}>
+                    {debt.person_name.charAt(0).toUpperCase()}
                   </div>
 
                   {/* Name + metadata */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{ob.person_name}</p>
+                    <p className="text-sm font-medium text-gray-900 truncate">{debt.person_name}</p>
                     <p className="text-xs text-gray-400">
                       {metaParts.length > 0 && metaParts.join(' \u00b7 ')}
                       {metaParts.length > 0 && txCount > 0 && ' \u00b7 '}
                       {txCount > 0 && (
                         <button
-                          onClick={() => setShowTransactionsId(isShowingTx ? null : ob.id)}
+                          onClick={() => setShowTransactionsId(isShowingTx ? null : debt.id)}
                           className="text-blue-600 hover:text-blue-800 underline"
                         >
                           {txCount} payment{txCount !== 1 ? 's' : ''}
@@ -198,17 +196,17 @@ export default function GroupedObligationCard({ obligations, onSettle, onDelete,
                   <div className="flex items-start gap-2 shrink-0">
                     <div className="text-right">
                       <p className="text-sm font-semibold text-gray-900">
-                        {fmt.format(ob.remaining_amount)}
+                        {fmt.format(debt.remaining_amount)}
                       </p>
-                      {ob.type === 'recurring' && ob.remaining_amount !== ob.total_amount && (
-                        <p className="text-[10px] text-gray-400">of {fmt.format(ob.total_amount)}</p>
+                      {debt.type === 'recurring' && debt.remaining_amount !== debt.total_amount && (
+                        <p className="text-[10px] text-gray-400">of {fmt.format(debt.total_amount)}</p>
                       )}
                     </div>
 
                     {!isSettled && (
                       <div className="relative" ref={isMenuOpen ? menuRef : undefined}>
                         <button
-                          onClick={() => setMenuId(isMenuOpen ? null : ob.id)}
+                          onClick={() => setMenuId(isMenuOpen ? null : debt.id)}
                           className="p-1 text-gray-400 hover:text-gray-600 rounded hover:bg-gray-100"
                           aria-label="More actions"
                         >
@@ -219,19 +217,19 @@ export default function GroupedObligationCard({ obligations, onSettle, onDelete,
                         {isMenuOpen && (
                           <div className="absolute right-0 mt-1 w-32 bg-white border border-gray-200 rounded-md shadow-lg z-10 py-1">
                             <button
-                              onClick={() => { onSettle(ob); setMenuId(null) }}
+                              onClick={() => { onSettle(debt); setMenuId(null) }}
                               className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
                             >
                               Settle
                             </button>
                             <button
-                              onClick={() => startEditing(ob)}
+                              onClick={() => startEditing(debt)}
                               className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
                             >
                               Edit
                             </button>
                             <button
-                              onClick={() => { onDelete(ob); setMenuId(null) }}
+                              onClick={() => { onDelete(debt); setMenuId(null) }}
                               className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
                             >
                               Delete
@@ -244,10 +242,10 @@ export default function GroupedObligationCard({ obligations, onSettle, onDelete,
                 </div>
 
                 {/* Per-person action buttons */}
-                {!isSettled && ob.type === 'recurring' && (
+                {!isSettled && debt.type === 'recurring' && (
                   <div className="flex items-center gap-2 mt-2 ml-11">
                     <button
-                      onClick={() => setPayingId(isPayingThis ? null : ob.id)}
+                      onClick={() => setPayingId(isPayingThis ? null : debt.id)}
                       className="text-xs px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50 text-gray-700"
                     >
                       Record Payment
@@ -281,7 +279,7 @@ export default function GroupedObligationCard({ obligations, onSettle, onDelete,
                         placeholder="Total amount"
                       />
                     </div>
-                    {ob.type === 'recurring' && (
+                    {debt.type === 'recurring' && (
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">Monthly deduction</label>
                         <input
@@ -305,7 +303,7 @@ export default function GroupedObligationCard({ obligations, onSettle, onDelete,
                     {editError && <p className="text-xs text-red-600">{editError}</p>}
                     <div className="flex gap-2">
                       <button
-                        onClick={() => handleSave(ob.id)}
+                        onClick={() => handleSave(debt.id)}
                         disabled={saving}
                         className="px-3 py-1 text-xs text-white bg-gray-900 rounded-md hover:bg-gray-800 disabled:opacity-50"
                       >
@@ -326,7 +324,7 @@ export default function GroupedObligationCard({ obligations, onSettle, onDelete,
                   <div className="ml-11 mt-2">
                     <p className="text-xs font-medium text-gray-500 mb-1">Transactions</p>
                     <ul className="space-y-1">
-                      {ob.transactions.map((tx, i) => (
+                      {debt.transactions.map((tx, i) => (
                         <li key={i} className="flex justify-between text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded">
                           <span>{fmt.format(tx.amount)}{tx.note ? ` \u2014 ${tx.note}` : ''}</span>
                           <span className="text-gray-400">{new Date(tx.paid_at).toLocaleDateString('en-IN')}</span>
@@ -340,7 +338,7 @@ export default function GroupedObligationCard({ obligations, onSettle, onDelete,
                 {isPayingThis && (
                   <div className="ml-11 mt-2">
                     <TransactionForm
-                      obligationId={ob.id}
+                      debtId={debt.id}
                       onDone={() => { setPayingId(null); onRefresh() }}
                     />
                   </div>

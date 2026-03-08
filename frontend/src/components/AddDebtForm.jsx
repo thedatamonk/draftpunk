@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createDebt } from '../api'
 
-export default function AddObligationForm({ onClose, onRefresh }) {
+export default function AddDebtForm({ onClose, onRefresh }) {
   const [persons, setPersons] = useState([])
   const [personInput, setPersonInput] = useState('')
   const [amount, setAmount] = useState('')

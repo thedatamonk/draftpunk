@@ -4,25 +4,24 @@ import TransactionForm from './TransactionForm'
 
 const fmt = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
 
-export default function ObligationCard({ obligation, onSettle, onDelete, onRefresh }) {
+export default function DebtCard({ debt, onSettle, onDelete, onRefresh }) {
   const [showPayment, setShowPayment] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [editing, setEditing] = useState(false)
   const [showTransactions, setShowTransactions] = useState(false)
   const [form, setForm] = useState({
-    person_name: obligation.person_name,
-    total_amount: obligation.total_amount,
-    expected_per_cycle: obligation.expected_per_cycle || '',
-    note: obligation.note || '',
+    person_name: debt.person_name,
+    total_amount: debt.total_amount,
+    expected_per_cycle: debt.expected_per_cycle || '',
+    note: debt.note || '',
   })
   const [saving, setSaving] = useState(false)
   const [editError, setEditError] = useState(null)
   const menuRef = useRef(null)
 
-  const isActive = obligation.status === 'active'
-  const txCount = obligation.transactions.length
+  const isActive = debt.status === 'active'
+  const txCount = debt.transactions.length
 
-  // Close overflow menu on outside click
   useEffect(() => {
     if (!showMenu) return
     const handler = (e) => {
@@ -48,7 +47,7 @@ export default function ObligationCard({ obligation, onSettle, onDelete, onRefre
       return
     }
 
-    if (obligation.type === 'recurring' && form.expected_per_cycle !== '') {
+    if (debt.type === 'recurring' && form.expected_per_cycle !== '') {
       const monthly = Number(form.expected_per_cycle)
       if (monthly > totalAmount) {
         setEditError('Monthly deduction cannot exceed total amount')
@@ -63,10 +62,10 @@ export default function ObligationCard({ obligation, onSettle, onDelete, onRefre
         total_amount: totalAmount,
         note: form.note || null,
       }
-      if (obligation.type === 'recurring' && form.expected_per_cycle !== '') {
+      if (debt.type === 'recurring' && form.expected_per_cycle !== '') {
         payload.expected_per_cycle = Number(form.expected_per_cycle)
       }
-      await updateDebt(obligation.id, payload)
+      await updateDebt(debt.id, payload)
       setEditing(false)
       onRefresh()
     } catch {
@@ -76,42 +75,41 @@ export default function ObligationCard({ obligation, onSettle, onDelete, onRefre
     }
   }
 
-  // Build metadata pieces
   const metaParts = []
-  if (obligation.type === 'recurring' && obligation.expected_per_cycle) {
-    metaParts.push(`${fmt.format(obligation.expected_per_cycle)}/month`)
+  if (debt.type === 'recurring' && debt.expected_per_cycle) {
+    metaParts.push(`${fmt.format(debt.expected_per_cycle)}/month`)
   }
-  metaParts.push(new Date(obligation.created_at).toLocaleDateString('en-IN'))
+  metaParts.push(new Date(debt.created_at).toLocaleDateString('en-IN'))
 
   return (
     <div className={`border border-gray-200 rounded-lg p-4 bg-white border-l-4 ${
-      obligation.direction === 'i_owe' ? 'border-l-orange-400' : 'border-l-green-400'
+      debt.direction === 'i_owe' ? 'border-l-orange-400' : 'border-l-green-400'
     }`}>
       {/* Header row */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="font-medium text-gray-900 truncate">{obligation.person_name}</h3>
+            <h3 className="font-medium text-gray-900 truncate">{debt.person_name}</h3>
             <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-              obligation.type === 'recurring'
+              debt.type === 'recurring'
                 ? 'bg-blue-50 text-blue-700'
                 : 'bg-gray-100 text-gray-600'
             }`}>
-              {obligation.type === 'recurring' ? 'Recurring' : 'One-time'}
+              {debt.type === 'recurring' ? 'Recurring' : 'One-time'}
             </span>
           </div>
-          {obligation.note && (
-            <p className="text-sm text-gray-500 mt-0.5 truncate">{obligation.note}</p>
+          {debt.note && (
+            <p className="text-sm text-gray-500 mt-0.5 truncate">{debt.note}</p>
           )}
         </div>
 
         <div className="flex items-start gap-2 shrink-0">
           <div className="text-right">
             <p className="text-lg font-semibold text-gray-900">
-              {fmt.format(obligation.remaining_amount)}
+              {fmt.format(debt.remaining_amount)}
             </p>
-            {obligation.type === 'recurring' && obligation.remaining_amount !== obligation.total_amount && (
-              <p className="text-xs text-gray-400">of {fmt.format(obligation.total_amount)}</p>
+            {debt.type === 'recurring' && debt.remaining_amount !== debt.total_amount && (
+              <p className="text-xs text-gray-400">of {fmt.format(debt.total_amount)}</p>
             )}
           </div>
 
@@ -130,7 +128,7 @@ export default function ObligationCard({ obligation, onSettle, onDelete, onRefre
               {showMenu && (
                 <div className="absolute right-0 mt-1 w-32 bg-white border border-gray-200 rounded-md shadow-lg z-10 py-1">
                   <button
-                    onClick={() => { onSettle(obligation); setShowMenu(false) }}
+                    onClick={() => { onSettle(debt); setShowMenu(false) }}
                     className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
                   >
                     Settle
@@ -142,7 +140,7 @@ export default function ObligationCard({ obligation, onSettle, onDelete, onRefre
                     Edit
                   </button>
                   <button
-                    onClick={() => { onDelete(obligation); setShowMenu(false) }}
+                    onClick={() => { onDelete(debt); setShowMenu(false) }}
                     className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
                   >
                     Delete
@@ -176,7 +174,7 @@ export default function ObligationCard({ obligation, onSettle, onDelete, onRefre
       )}
 
       {/* Action buttons */}
-      {isActive && obligation.type === 'recurring' && (
+      {isActive && debt.type === 'recurring' && (
         <div className="flex items-center gap-2 mt-3">
           <button
             onClick={() => setShowPayment(!showPayment)}
@@ -209,7 +207,7 @@ export default function ObligationCard({ obligation, onSettle, onDelete, onRefre
               placeholder="Total amount"
             />
           </div>
-          {obligation.type === 'recurring' && (
+          {debt.type === 'recurring' && (
             <div>
               <label className="block text-xs text-gray-500 mb-1">Monthly deduction</label>
               <input
@@ -254,7 +252,7 @@ export default function ObligationCard({ obligation, onSettle, onDelete, onRefre
         <div className="border-t border-gray-100 mt-3 pt-3">
           <p className="text-xs font-medium text-gray-500 mb-1">Transactions</p>
           <ul className="space-y-1">
-            {obligation.transactions.map((tx, i) => (
+            {debt.transactions.map((tx, i) => (
               <li key={i} className="flex justify-between text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded">
                 <span>{fmt.format(tx.amount)}{tx.note ? ` \u2014 ${tx.note}` : ''}</span>
                 <span className="text-gray-400">{new Date(tx.paid_at).toLocaleDateString('en-IN')}</span>
@@ -268,7 +266,7 @@ export default function ObligationCard({ obligation, onSettle, onDelete, onRefre
       {showPayment && isActive && (
         <div className="mt-3">
           <TransactionForm
-            obligationId={obligation.id}
+            debtId={debt.id}
             onDone={() => { setShowPayment(false); onRefresh() }}
           />
         </div>
