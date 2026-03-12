@@ -1,12 +1,15 @@
+import json
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 from sqlalchemy.orm import Session
+from starlette.responses import StreamingResponse
 
 from app.db.database import get_db
 from app.db.models import Debt
 from app.db.repository import DebtRepository
+from app.events import publish, subscribe
 from app.models.schemas import (
     AddTransactionRequest,
     CreateDebtRequest,
@@ -101,3 +104,14 @@ def settle_debt(debt_id: int, repo: DebtRepository = Depends(get_repo)):
     settled = repo.settle(debt_id)
     logger.info("Settled debt #{}", debt_id)
     return DebtSchema.model_validate(settled)
+
+
+@router.get("/events")
+async def sse_events():
+    async def stream():
+        async with subscribe() as queue:
+            while True:
+                event = await queue.get()
+                yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(stream(), media_type="text/event-stream")
