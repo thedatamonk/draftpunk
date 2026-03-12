@@ -43,3 +43,14 @@ export function addTransaction(id, data) {
 export function settleDebt(id) {
   return fetch(`/debts/${id}/settle`, { method: 'POST' }).then(json)
 }
+
+export function subscribeEvents(onEvent) {
+  const source = new EventSource('/events')
+  source.onmessage = (e) => {
+    onEvent(JSON.parse(e.data))
+  }
+  source.onerror = () => {
+    // Browser auto-reconnects EventSource on error
+  }
+  return () => source.close()
+}

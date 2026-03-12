@@ -7,6 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/debts': 'http://localhost:8000',
+      '/events': 'http://localhost:8000',
     },
   },
 })
