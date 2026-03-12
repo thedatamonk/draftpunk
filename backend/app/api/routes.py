@@ -39,6 +39,7 @@ def create_debt(request: CreateDebtRequest, repo: DebtRepository = Depends(get_r
     )
     created = repo.add(debt)
     logger.info("Created debt #{} for {}", created.id, created.person_name)
+    publish("debt_created")
     return [DebtSchema.model_validate(created)]
 
 
@@ -69,6 +70,7 @@ def update_debt(debt_id: int, request: UpdateDebtRequest, repo: DebtRepository =
 
     updated = repo.update(debt_id, **updates)
     logger.info("Updated debt #{}", debt_id)
+    publish("debt_updated")
     return DebtSchema.model_validate(updated)
 
 
@@ -77,6 +79,7 @@ def delete_debt(debt_id: int, repo: DebtRepository = Depends(get_repo)):
     if not repo.delete(debt_id):
         raise HTTPException(status_code=404, detail="Debt not found")
     logger.info("Deleted debt #{}", debt_id)
+    publish("debt_deleted")
     return {"detail": "Debt deleted"}
 
 
@@ -90,6 +93,7 @@ def add_transaction(debt_id: int, request: AddTransactionRequest, repo: DebtRepo
 
     updated = repo.add_transaction(debt_id, request.amount, request.note)
     logger.info("Added transaction of {} to debt #{}", request.amount, debt_id)
+    publish("transaction_added")
     return DebtSchema.model_validate(updated)
 
 
@@ -103,6 +107,7 @@ def settle_debt(debt_id: int, repo: DebtRepository = Depends(get_repo)):
 
     settled = repo.settle(debt_id)
     logger.info("Settled debt #{}", debt_id)
+    publish("debt_settled")
     return DebtSchema.model_validate(settled)
 
 
