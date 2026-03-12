@@ -12,4 +12,5 @@ dependencies = [
     "pydantic-settings>=2.5.0",
     "loguru>=0.7.0",
     "python-telegram-bot>=21.0",
+    "simpleeval>=1.0.0",
 ]
