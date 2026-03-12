@@ -2,11 +2,8 @@
 
 # Spendly
 
-Track debts conversationally via Telegram or a web dashboard — powered by OpenAI Agent.
-
 </div>
 
----
 
 Spendly is a personal finance tracker that lets you manage money owed between friends and family using natural language. Say things like *"Gave Rahul 5k for groceries"* or *"Dinner with Priya and Amit, 3200, I paid"* — the AI agent parses your message, handles splits, tracks recurring debts with monthly deductions, and manages partial payments. It understands Hinglish, disambiguates when someone has multiple debts, and asks for clarification when your message is vague. Everything works through a Telegram bot or a React web dashboard backed by the same API.
 
