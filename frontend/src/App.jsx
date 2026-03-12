@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { listDebts, settleDebt, deleteDebt } from './api'
+import { listDebts, settleDebt, deleteDebt, subscribeEvents } from './api'
 import AddDebtForm from './components/AddDebtForm'
 import DebtList from './components/DebtList'
 import ConfirmDialog from './components/ConfirmDialog'
@@ -52,8 +52,10 @@ export default function App() {
   }, [fetchDebts])
 
   useEffect(() => {
-    const interval = setInterval(refreshAll, 5000)
-    return () => clearInterval(interval)
+    const unsubscribe = subscribeEvents(() => {
+      refreshAll()
+    })
+    return unsubscribe
   }, [refreshAll])
 
   const stats = useMemo(() => {
