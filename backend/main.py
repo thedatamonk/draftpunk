@@ -1,3 +1,4 @@
+import asyncio
 import os
 import sys
 from contextlib import asynccontextmanager
@@ -13,15 +14,22 @@ from loguru import logger
 from app.api.routes import router
 from app.config import get_settings
 from app.db.database import init_db
+from app.events import set_loop
 
 logger.remove()
 logger.add(sys.stderr, level="INFO", format="{time:HH:mm:ss} | {level:<7} | {message}")
 
 settings = get_settings()
 
+if settings.openai_api_key:
+    os.environ.setdefault("OPENAI_API_KEY", settings.openai_api_key)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Capture event loop for thread-safe SSE publishing
+    set_loop(asyncio.get_running_loop())
+
     # Initialize database
     init_db()
     logger.info("Database initialized")

@@ -119,4 +119,8 @@ async def sse_events():
                 event = await queue.get()
                 yield f"data: {json.dumps(event)}\n\n"
 
-    return StreamingResponse(stream(), media_type="text/event-stream")
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

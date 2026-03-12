@@ -2,6 +2,13 @@ import asyncio
 from contextlib import asynccontextmanager
 
 _subscribers: set[asyncio.Queue] = set()
+_loop: asyncio.AbstractEventLoop | None = None
+
+
+def set_loop(loop: asyncio.AbstractEventLoop) -> None:
+    """Capture the running event loop (call once at startup)."""
+    global _loop
+    _loop = loop
 
 
 @asynccontextmanager
@@ -18,9 +25,12 @@ async def subscribe():
 def publish(event_type: str):
     """Broadcast an event to all connected SSE clients.
 
-    Iterates a snapshot (list) of _subscribers because publish() may be called
-    from a sync thread (Telegram bot tools) while subscribe/unsubscribe mutates
-    the set on the event-loop thread.
+    Uses call_soon_threadsafe so this is safe to call from any thread
+    (e.g. sync tool functions running in a worker thread).
     """
+    event = {"type": event_type}
     for queue in list(_subscribers):
-        queue.put_nowait({"type": event_type})
+        if _loop is not None and _loop.is_running():
+            _loop.call_soon_threadsafe(queue.put_nowait, event)
+        else:
+            queue.put_nowait(event)

@@ -46,11 +46,13 @@ export function settleDebt(id) {
 
 export function subscribeEvents(onEvent) {
   const source = new EventSource('/events')
+  let timer = null
   source.onmessage = (e) => {
-    onEvent(JSON.parse(e.data))
+    clearTimeout(timer)
+    timer = setTimeout(() => onEvent(JSON.parse(e.data)), 200)
   }
   source.onerror = () => {
     // Browser auto-reconnects EventSource on error
   }
-  return () => source.close()
+  return () => { clearTimeout(timer); source.close() }
 }
