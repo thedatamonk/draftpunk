@@ -3,51 +3,56 @@ const json = (res) => {
   return res.json()
 }
 
-export function parseMessage(message) {
-  return fetch('/parse', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
-  }).then(json)
-}
-
-export function listObligations(status) {
+export function listDebts(status) {
   const params = status ? `?status=${status}` : ''
-  return fetch(`/obligations${params}`).then(json)
+  return fetch(`/debts${params}`).then(json)
 }
 
-export function getObligation(id) {
-  return fetch(`/obligations/${id}`).then(json)
+export function getDebt(id) {
+  return fetch(`/debts/${id}`).then(json)
 }
 
-export function createObligation(data) {
-  return fetch('/obligations', {
+export function createDebt(data) {
+  return fetch('/debts', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   }).then(json)
 }
 
-export function updateObligation(id, data) {
-  return fetch(`/obligations/${id}`, {
+export function updateDebt(id, data) {
+  return fetch(`/debts/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   }).then(json)
 }
 
-export function deleteObligation(id) {
-  return fetch(`/obligations/${id}`, { method: 'DELETE' }).then(json)
+export function deleteDebt(id) {
+  return fetch(`/debts/${id}`, { method: 'DELETE' }).then(json)
 }
 
 export function addTransaction(id, data) {
-  return fetch(`/obligations/${id}/transactions`, {
+  return fetch(`/debts/${id}/transactions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   }).then(json)
 }
 
-export function settleObligation(id) {
-  return fetch(`/obligations/${id}/settle`, { method: 'POST' }).then(json)
+export function settleDebt(id) {
+  return fetch(`/debts/${id}/settle`, { method: 'POST' }).then(json)
+}
+
+export function subscribeEvents(onEvent) {
+  const source = new EventSource('/events')
+  let timer = null
+  source.onmessage = (e) => {
+    clearTimeout(timer)
+    timer = setTimeout(() => onEvent(JSON.parse(e.data)), 200)
+  }
+  source.onerror = () => {
+    // Browser auto-reconnects EventSource on error
+  }
+  return () => { clearTimeout(timer); source.close() }
 }

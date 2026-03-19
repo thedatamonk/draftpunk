@@ -1,8 +1,8 @@
-import ObligationCard from './ObligationCard'
-import GroupedObligationCard from './GroupedObligationCard'
+import DebtCard from './DebtCard'
+import GroupedDebtCard from './GroupedDebtCard'
 
-export default function ObligationList({ obligations, sortBy, onSettle, onDelete, onRefresh, onAdd, isActive, hasSearch }) {
-  if (obligations.length === 0) {
+export default function DebtList({ debts, sortBy, onSettle, onDelete, onRefresh, onAdd, isActive, hasSearch }) {
+  if (debts.length === 0) {
     if (hasSearch) {
       return <p className="text-center text-gray-400 py-12">No results matching your search</p>
     }
@@ -28,40 +28,40 @@ export default function ObligationList({ obligations, sortBy, onSettle, onDelete
     )
   }
 
-  // Group obligations by trxn_id
+  // Group debts by trxn_id
   const grouped = new Map()
   const ungrouped = []
 
-  for (const ob of obligations) {
-    if (ob.trxn_id) {
-      if (!grouped.has(ob.trxn_id)) {
-        grouped.set(ob.trxn_id, [])
+  for (const debt of debts) {
+    if (debt.trxn_id) {
+      if (!grouped.has(debt.trxn_id)) {
+        grouped.set(debt.trxn_id, [])
       }
-      grouped.get(ob.trxn_id).push(ob)
+      grouped.get(debt.trxn_id).push(debt)
     } else {
-      ungrouped.push(ob)
+      ungrouped.push(debt)
     }
   }
 
   // Build render items
   const items = []
 
-  for (const ob of ungrouped) {
+  for (const debt of ungrouped) {
     items.push({
       type: 'single',
-      key: ob.id,
-      obligation: ob,
-      sortDate: new Date(ob.created_at),
-      sortAmount: ob.remaining_amount ?? ob.total_amount,
-      sortName: ob.person_name.toLowerCase(),
+      key: debt.id,
+      debt,
+      sortDate: new Date(debt.created_at),
+      sortAmount: debt.remaining_amount ?? debt.total_amount,
+      sortName: debt.person_name.toLowerCase(),
     })
   }
 
-  for (const [trxnId, obs] of grouped) {
-    const sortDate = new Date(Math.max(...obs.map(o => new Date(o.created_at).getTime())))
-    const sortAmount = obs.reduce((sum, o) => sum + (o.remaining_amount ?? o.total_amount), 0)
-    const sortName = obs.map(o => o.person_name).sort()[0].toLowerCase()
-    items.push({ type: 'group', key: trxnId, obligations: obs, sortDate, sortAmount, sortName })
+  for (const [trxnId, groupDebts] of grouped) {
+    const sortDate = new Date(Math.max(...groupDebts.map(d => new Date(d.created_at).getTime())))
+    const sortAmount = groupDebts.reduce((sum, d) => sum + (d.remaining_amount ?? d.total_amount), 0)
+    const sortName = groupDebts.map(d => d.person_name).sort()[0].toLowerCase()
+    items.push({ type: 'group', key: trxnId, debts: groupDebts, sortDate, sortAmount, sortName })
   }
 
   // Apply sort
@@ -77,17 +77,17 @@ export default function ObligationList({ obligations, sortBy, onSettle, onDelete
     <div className="space-y-3">
       {items.map((item) =>
         item.type === 'group' ? (
-          <GroupedObligationCard
+          <GroupedDebtCard
             key={item.key}
-            obligations={item.obligations}
+            debts={item.debts}
             onSettle={onSettle}
             onDelete={onDelete}
             onRefresh={onRefresh}
           />
         ) : (
-          <ObligationCard
+          <DebtCard
             key={item.key}
-            obligation={item.obligation}
+            debt={item.debt}
             onSettle={onSettle}
             onDelete={onDelete}
             onRefresh={onRefresh}

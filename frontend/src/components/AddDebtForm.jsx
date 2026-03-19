@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { createObligation } from '../api'
+import { createDebt } from '../api'
 
-export default function AddObligationForm({ onClose, onRefresh }) {
+export default function AddDebtForm({ onClose, onRefresh }) {
   const [persons, setPersons] = useState([])
   const [personInput, setPersonInput] = useState('')
   const [amount, setAmount] = useState('')
@@ -91,7 +91,7 @@ export default function AddObligationForm({ onClose, onRefresh }) {
       const trxn_id = names.length > 1 ? crypto.randomUUID() : undefined
 
       for (const name of names) {
-        await createObligation({
+        await createDebt({
           person_name: name,
           type,
           direction,

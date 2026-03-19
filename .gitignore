@@ -23,3 +23,7 @@ backend/.env
 
 # Tests
 tests/results.log
+
+docs/
+
+memory_ledger.db*

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { addTransaction } from '../api'
 
-export default function TransactionForm({ obligationId, onDone }) {
+export default function TransactionForm({ debtId, onDone }) {
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -20,7 +20,7 @@ export default function TransactionForm({ obligationId, onDone }) {
     }
     setSubmitting(true)
     try {
-      await addTransaction(obligationId, {
+      await addTransaction(debtId, {
         amount: Number(amount),
         note: note || undefined,
       })

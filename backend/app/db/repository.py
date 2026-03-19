@@ -1,103 +1,97 @@
 from datetime import datetime
 
-from tinydb import TinyDB, Query
+from sqlalchemy.orm import Session
 
-from app.models.schemas import Obligation, Transaction
+from app.db.models import Debt, Transaction
 
 
-class ObligationRepository:
-    def __init__(self, db_path: str = "memory_ledger.json"):
-        self.db = TinyDB(db_path)
-        self.table = self.db.table("obligations")
+class DebtRepository:
+    def __init__(self, db: Session):
+        self.db = db
 
-    def add(self, obligation: Obligation) -> Obligation:
-        data = obligation.model_dump(mode="json")
-        data.pop("id", None)
-        doc_id = self.table.insert(data)
-        obligation.id = doc_id
-        return obligation
+    def add(self, debt: Debt) -> Debt:
+        self.db.add(debt)
+        self.db.commit()
+        self.db.refresh(debt)
+        return debt
 
-    def get(self, id: int) -> Obligation | None:
-        doc = self.table.get(doc_id=id)
-        if doc is None:
-            return None
-        return Obligation(id=doc.doc_id, **doc)
+    def add_all(self, debts: list[Debt]) -> list[Debt]:
+        self.db.add_all(debts)
+        self.db.commit()
+        for debt in debts:
+            self.db.refresh(debt)
+        return debts
 
-    def get_by_person(self, name: str, status: str = "active") -> list[Obligation]:
-        Ob = Query()
-        docs = self.table.search(
-            (Ob.person_name.test(lambda val: val.lower() == name.lower()))
-            & (Ob.status == status)
+    def get(self, debt_id: int) -> Debt | None:
+        return self.db.get(Debt, debt_id)
+
+    def get_by_person(self, name: str, status: str = "active", direction: str | None = None) -> list[Debt]:
+        query = self.db.query(Debt).filter(
+            Debt.person_name.ilike(name), Debt.status == status
         )
-        return [Obligation(id=doc.doc_id, **doc) for doc in docs]
+        if direction:
+            query = query.filter(Debt.direction == direction)
+        return query.all()
 
-    def get_all(self, status: str | None = None) -> list[Obligation]:
+    def get_all(self, status: str | None = None, direction: str | None = None) -> list[Debt]:
+        query = self.db.query(Debt)
         if status:
-            Ob = Query()
-            docs = self.table.search(Ob.status == status)
-        else:
-            docs = self.table.all()
-        return [Obligation(id=doc.doc_id, **doc) for doc in docs]
+            query = query.filter(Debt.status == status)
+        if direction:
+            query = query.filter(Debt.direction == direction)
+        return query.order_by(Debt.created_at.desc()).all()
 
-    def update(self, id: int, **fields) -> Obligation | None:
-        doc = self.table.get(doc_id=id)
-        if doc is None:
+    def update(self, debt_id: int, **fields) -> Debt | None:
+        debt = self.get(debt_id)
+        if debt is None:
             return None
-        # Filter out None values so we only update provided fields
-        updates = {k: v for k, v in fields.items() if v is not None}
-        if updates:
-            self.table.update(updates, doc_ids=[id])
-        return self.get(id)
+        for key, value in fields.items():
+            if value is not None:
+                setattr(debt, key, value)
+        self.db.commit()
+        self.db.refresh(debt)
+        return debt
 
-    def add_transaction(self, id: int, transaction: Transaction) -> Obligation | None:
-        doc = self.table.get(doc_id=id)
-        if doc is None:
-            return None
-
-        transactions = doc.get("transactions", [])
-        transactions.append(transaction.model_dump(mode="json"))
-
-        remaining = doc["remaining_amount"] - transaction.amount
-        remaining = max(remaining, 0)
-
-        updates = {
-            "transactions": transactions,
-            "remaining_amount": remaining,
-        }
-        if remaining == 0:
-            updates["status"] = "settled"
-
-        self.table.update(updates, doc_ids=[id])
-        return self.get(id)
-
-    def settle(self, id: int) -> Obligation | None:
-        doc = self.table.get(doc_id=id)
-        if doc is None:
+    def add_transaction(self, debt_id: int, amount: float, note: str | None = None) -> Debt | None:
+        debt = self.get(debt_id)
+        if debt is None:
             return None
 
-        now = datetime.now().isoformat()
-        remaining = doc["remaining_amount"]
+        txn = Transaction(debt_id=debt_id, amount=amount, paid_at=datetime.now(), note=note)
+        self.db.add(txn)
 
-        # Add a settlement transaction for the remaining amount if any
-        transactions = doc.get("transactions", [])
-        if remaining > 0:
-            transactions.append(
-                {"amount": remaining, "paid_at": now, "note": "Full settlement"}
+        debt.remaining_amount = max(debt.remaining_amount - amount, 0)
+        if debt.remaining_amount == 0:
+            debt.status = "settled"
+
+        self.db.commit()
+        self.db.refresh(debt)
+        return debt
+
+    def settle(self, debt_id: int) -> Debt | None:
+        debt = self.get(debt_id)
+        if debt is None:
+            return None
+
+        if debt.remaining_amount > 0:
+            txn = Transaction(
+                debt_id=debt_id,
+                amount=debt.remaining_amount,
+                paid_at=datetime.now(),
+                note="Full settlement",
             )
+            self.db.add(txn)
 
-        self.table.update(
-            {
-                "status": "settled",
-                "remaining_amount": 0,
-                "transactions": transactions,
-            },
-            doc_ids=[id],
-        )
-        return self.get(id)
+        debt.remaining_amount = 0
+        debt.status = "settled"
+        self.db.commit()
+        self.db.refresh(debt)
+        return debt
 
-    def delete(self, id: int) -> bool:
-        doc = self.table.get(doc_id=id)
-        if doc is None:
+    def delete(self, debt_id: int) -> bool:
+        debt = self.get(debt_id)
+        if debt is None:
             return False
-        self.table.remove(doc_ids=[id])
+        self.db.delete(debt)
+        self.db.commit()
         return True
